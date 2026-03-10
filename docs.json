@@ -98,13 +98,17 @@
           {
             "group": "Profiles",
             "pages": [
-              "api/profiles/overview"
+              "api/profiles/overview",
+              "api/profiles/get-all",
+              "api/profiles/get-one",
+              "api/profiles/update"
             ]
           },
           {
             "group": "Payments",
             "pages": [
               "api/payments/overview",
+              "api/payments/create",
               "api/payments/create-preference"
             ]
           }

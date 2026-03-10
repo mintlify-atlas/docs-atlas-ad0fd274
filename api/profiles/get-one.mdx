@@ -1,0 +1,173 @@
+---
+title: 'Get One Profile'
+description: 'Retrieve a specific user profile by ID'
+icon: 'user'
+---
+
+## Endpoint
+
+```
+GET /api/profiles/:id
+```
+
+## Description
+
+Retrieves a specific user profile based on the provided user ID. Users can access their own profile, while administrators can access any profile.
+
+See implementation in `server/src/modules/profiles/profiles.controller.ts:26-40`.
+
+## Authentication
+
+<Info>
+  This endpoint requires Bearer token authentication. Include your access token in the `Authorization` header.
+</Info>
+
+## Path Parameters
+
+<ParamField path="id" type="string" required>
+  The unique identifier of the user whose profile you want to retrieve.
+  
+  **Example**: `abc123`
+</ParamField>
+
+## Response
+
+<ResponseField name="id" type="string">
+  Unique identifier for the user
+</ResponseField>
+
+<ResponseField name="email" type="string">
+  User's email address
+</ResponseField>
+
+<ResponseField name="full_name" type="string">
+  User's full name
+</ResponseField>
+
+<ResponseField name="role" type="string">
+  User role: `USER` or `ADMIN`
+</ResponseField>
+
+<ResponseField name="is_active" type="boolean">
+  Whether the user account is active
+</ResponseField>
+
+<ResponseField name="birth_date" type="string" optional>
+  User's date of birth in ISO 8601 format (YYYY-MM-DD)
+</ResponseField>
+
+<ResponseField name="is_profile_complete" type="boolean">
+  Whether the user has completed their profile setup
+</ResponseField>
+
+<ResponseField name="created_at" type="string">
+  Timestamp when the profile was created
+</ResponseField>
+
+### Success Response (200)
+
+```json
+{
+  "id": "abc123",
+  "email": "professional@example.com",
+  "full_name": "Dr. Jane Smith",
+  "role": "ADMIN",
+  "is_active": true,
+  "birth_date": "1985-03-15",
+  "is_profile_complete": true,
+  "created_at": "2024-01-15T10:30:00.000Z"
+}
+```
+
+## Error Responses
+
+### 401 Unauthorized
+
+```json
+{
+  "statusCode": 401,
+  "message": "Token inválido o expirado",
+  "error": "Unauthorized"
+}
+```
+
+Missing or invalid Bearer token.
+
+### 404 Not Found
+
+```json
+{
+  "statusCode": 404,
+  "message": "Perfil no encontrado.",
+  "error": "Not Found"
+}
+```
+
+No profile exists for the specified user ID.
+
+## Code Examples
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET https://api.zenda.com/api/profiles/abc123 \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+```typescript TypeScript
+const userId = 'abc123';
+
+const response = await fetch(`https://api.zenda.com/api/profiles/${userId}`, {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+  },
+});
+
+const profile = await response.json();
+```
+
+```javascript JavaScript
+const axios = require('axios');
+
+const userId = 'abc123';
+
+const { data } = await axios.get(`https://api.zenda.com/api/profiles/${userId}`, {
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+  },
+});
+
+console.log(data);
+```
+
+</CodeGroup>
+
+## Use Cases
+
+- Display user profile information in dashboard
+- Verify user details before processing reservations
+- Show patient information to professionals
+- Check profile completion status
+- Retrieve user role for permission checks
+
+## Profile Completion
+
+The `is_profile_complete` field indicates whether the user has finished setting up their profile. This is useful for:
+- Prompting users to complete required fields
+- Restricting access to certain features until profile is complete
+- Tracking onboarding progress
+
+## Related Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Get All Profiles" icon="users" href="/api/profiles/get-all">
+    Retrieve all profiles (admin only)
+  </Card>
+  <Card title="Update Profile" icon="pen" href="/api/profiles/update">
+    Update profile information
+  </Card>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn about API authentication
+  </Card>
+</CardGroup>
