@@ -1,0 +1,123 @@
+{
+  "projectType": "saas",
+  "projectName": "Zenda",
+  "projectDescription": "Appointment management platform for mental health professionals and their patients",
+  "theme": "almond",
+  "primaryColor": "#4c44e4",
+  "lightColor": "#a49cf4",
+  "darkColor": null,
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "authentication"
+            ]
+          },
+          {
+            "group": "For Professionals",
+            "pages": [
+              "professionals/dashboard",
+              "professionals/schedule-management",
+              "professionals/patient-management",
+              "professionals/payment-settings",
+              "professionals/reservations"
+            ]
+          },
+          {
+            "group": "For Patients",
+            "pages": [
+              "patients/booking-appointments",
+              "patients/managing-reservations",
+              "patients/payments"
+            ]
+          },
+          {
+            "group": "Integrations",
+            "pages": [
+              "integrations/mercado-pago",
+              "integrations/supabase"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              "api/introduction",
+              "api/authentication"
+            ]
+          },
+          {
+            "group": "Reservations",
+            "pages": [
+              "api/reservations/overview",
+              "api/reservations/create-without-payment",
+              "api/reservations/create-with-payment",
+              "api/reservations/get-all",
+              "api/reservations/get-by-user",
+              "api/reservations/get-by-professional",
+              "api/reservations/get-availability",
+              "api/reservations/get-one",
+              "api/reservations/delete"
+            ]
+          },
+          {
+            "group": "Professional Settings",
+            "pages": [
+              "api/professional-settings/overview",
+              "api/professional-settings/get",
+              "api/professional-settings/update"
+            ]
+          },
+          {
+            "group": "Profiles",
+            "pages": [
+              "api/profiles/overview"
+            ]
+          },
+          {
+            "group": "Payments",
+            "pages": [
+              "api/payments/overview",
+              "api/payments/create-preference"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Real-time appointment scheduling for mental health professionals",
+    "Patient booking with payment integration via Mercado Pago",
+    "Professional dashboard with calendar and reservation management",
+    "Configurable session types (in-person, virtual)",
+    "Deposit requirements and automatic payment confirmation",
+    "Patient history and reservation tracking",
+    "Role-based access control for professionals and patients",
+    "RESTful API with Swagger documentation"
+  ],
+  "publicApiSurface": [
+    "POST /api/reservations/create-without-payment",
+    "POST /api/reservations/create-with-payment",
+    "POST /api/reservations/payment",
+    "GET /api/reservations",
+    "GET /api/reservations/user/:client_id",
+    "GET /api/reservations/professional/:professionalId",
+    "GET /api/reservations/availability",
+    "GET /api/reservations/:id",
+    "DELETE /api/reservations/:id",
+    "GET /api/professional-settings",
+    "PATCH /api/professional-settings/:id",
+    "GET /api/profiles",
+    "POST /api/payments/preference"
+  ]
+}
