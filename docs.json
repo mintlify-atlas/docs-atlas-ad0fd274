@@ -1,122 +1,115 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Zenda",
+  "theme": "almond",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#4c44e4",
+    "light": "#a49cf4",
+    "dark": "#4c44e4"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/70aff826-df5e-476a-9412-bbdb2857227b.svg",
+  "logo": {
+    "light": "https://media.brand.dev/70aff826-df5e-476a-9412-bbdb2857227b.svg",
+    "dark": "https://media.brand.dev/70aff826-df5e-476a-9412-bbdb2857227b.svg"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/MartinsDiego17/zenda"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/MartinsDiego17/zenda"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "authentication"
             ]
           },
           {
-            "group": "Customization",
+            "group": "For Professionals",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "professionals/dashboard",
+              "professionals/schedule-management",
+              "professionals/patient-management",
+              "professionals/payment-settings",
+              "professionals/reservations"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "For Patients",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "patients/booking-appointments",
+              "patients/managing-reservations",
+              "patients/payments"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Integrations",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "integrations/mercado-pago",
+              "integrations/supabase"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Overview",
             "pages": [
-              "api-reference/introduction"
+              "api/introduction",
+              "api/authentication"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Reservations",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/reservations/overview",
+              "api/reservations/create-without-payment",
+              "api/reservations/create-with-payment",
+              "api/reservations/get-all",
+              "api/reservations/get-by-user",
+              "api/reservations/get-by-professional",
+              "api/reservations/get-availability",
+              "api/reservations/get-one",
+              "api/reservations/delete"
+            ]
+          },
+          {
+            "group": "Professional Settings",
+            "pages": [
+              "api/professional-settings/overview",
+              "api/professional-settings/get",
+              "api/professional-settings/update"
+            ]
+          },
+          {
+            "group": "Profiles",
+            "pages": [
+              "api/profiles/overview"
+            ]
+          },
+          {
+            "group": "Payments",
+            "pages": [
+              "api/payments/overview",
+              "api/payments/create-preference"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

@@ -1,0 +1,223 @@
+---
+title: 'Create Payment Preference'
+description: 'Generate a payment preference for payment providers'
+icon: 'file-invoice'
+---
+
+## Endpoint
+
+```
+POST /api/reservations/payment
+```
+
+<Info>
+  Note: This endpoint is under the `/api/reservations` path, not `/api/payments`, as it's part of the reservation creation flow.
+</Info>
+
+## Description
+
+Generates a payment preference (e.g., for MercadoPago) based on reservation information. This preference is used to initiate the payment process with external payment providers.
+
+See implementation in `server/src/modules/reservations/reservations.controller.ts:58-68`.
+
+## Authentication
+
+<Info>
+  This endpoint requires Bearer token authentication. Include your access token in the `Authorization` header.
+</Info>
+
+## Request Body
+
+Provide reservation information to generate the payment preference.
+
+<ParamField body="client_id" type="string" required>
+  ID of the client making the reservation
+</ParamField>
+
+<ParamField body="professional_id" type="string" required>
+  ID of the professional
+</ParamField>
+
+<ParamField body="start_time" type="string" required>
+  Start time of the reservation in ISO 8601 format
+</ParamField>
+
+<ParamField body="end_time" type="string" required>
+  End time of the reservation in ISO 8601 format
+</ParamField>
+
+<ParamField body="session_modality" type="string" required>
+  Type of session: `Virtual`, `Presencial`, or empty string
+</ParamField>
+
+<ParamField body="deposit_amount" type="number" required>
+  Amount to charge for the reservation deposit
+</ParamField>
+
+## Response
+
+Returns a payment preference object from the payment provider (structure depends on the provider, typically MercadoPago).
+
+<ResponseField name="id" type="string">
+  Payment preference ID from the provider
+</ResponseField>
+
+<ResponseField name="init_point" type="string">
+  URL where the user should be redirected to complete payment
+</ResponseField>
+
+<ResponseField name="sandbox_init_point" type="string">
+  URL for testing in sandbox environment
+</ResponseField>
+
+## Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X POST https://your-domain.com/api/reservations/payment \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "abc123",
+    "professional_id": "prof456",
+    "start_time": "2026-03-15T10:00:00Z",
+    "end_time": "2026-03-15T11:00:00Z",
+    "session_modality": "Virtual",
+    "deposit_amount": 5000
+  }'
+```
+
+```typescript TypeScript
+const createPaymentPreference = async (reservationInfo: any) => {
+  const response = await fetch('https://your-domain.com/api/reservations/payment', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      client_id: 'abc123',
+      professional_id: 'prof456',
+      start_time: '2026-03-15T10:00:00Z',
+      end_time: '2026-03-15T11:00:00Z',
+      session_modality: 'Virtual',
+      deposit_amount: 5000
+    })
+  });
+  
+  const data = await response.json();
+  return data;
+};
+
+// Usage
+const preference = await createPaymentPreference(reservationDetails);
+// Redirect user to preference.init_point to complete payment
+window.location.href = preference.init_point;
+```
+
+</CodeGroup>
+
+## Example Response
+
+```json
+{
+  "id": "123456789-abcd-1234-5678-abcdef123456",
+  "init_point": "https://www.mercadopago.com.ar/checkout/v1/redirect?pref_id=123456789-abcd",
+  "sandbox_init_point": "https://sandbox.mercadopago.com.ar/checkout/v1/redirect?pref_id=123456789-abcd",
+  "date_created": "2026-03-10T08:30:00.000Z",
+  "operation_type": "regular_payment",
+  "additional_info": "Reservation deposit"
+}
+```
+
+## Error Responses
+
+### Bad Request
+
+```json
+{
+  "statusCode": 400,
+  "message": "Error al crear la preferencia de pago",
+  "error": "Bad Request"
+}
+```
+
+### Unauthorized
+
+```json
+{
+  "statusCode": 401,
+  "message": "Token inválido o expirado",
+  "error": "Unauthorized"
+}
+```
+
+## Workflow
+
+<Steps>
+  <Step title="Create Preference">
+    Call this endpoint with reservation details to generate a payment preference
+  </Step>
+  
+  <Step title="Redirect User">
+    Redirect the user to the `init_point` URL to complete payment with the provider
+  </Step>
+  
+  <Step title="Process Payment">
+    User completes payment on the provider's site (e.g., MercadoPago)
+  </Step>
+  
+  <Step title="Handle Callback">
+    Payment provider sends callback with payment result and payment ID
+  </Step>
+  
+  <Step title="Create Reservation">
+    Call [Create With Payment](/api/reservations/create-with-payment) with the payment information to finalize the reservation
+  </Step>
+</Steps>
+
+## Integration Notes
+
+### MercadoPago Integration
+
+This endpoint integrates with MercadoPago's preference API. The service layer handles:
+- Creating the preference with MercadoPago
+- Setting callback URLs for success/failure
+- Including reservation metadata
+- Configuring payment methods
+
+### Payment Amount
+
+The `deposit_amount` should match the professional's configuration:
+- Check [Professional Settings](/api/professional-settings/get) for the required `deposit_amount`
+- Ensure the amount matches to avoid discrepancies
+
+### Testing
+
+For testing:
+- Use `sandbox_init_point` instead of `init_point`
+- Use MercadoPago test credentials and test cards
+- Payment provider typically offers a sandbox environment
+
+## Best Practices
+
+- Always validate the deposit amount against professional settings
+- Store the preference ID for reference
+- Implement proper error handling for payment failures
+- Set appropriate success and failure callback URLs
+- Display clear payment instructions to users
+- Handle edge cases (payment timeout, cancellation, etc.)
+
+## Related Endpoints
+
+- [Create With Payment](/api/reservations/create-with-payment) - Create reservation after payment
+- [Professional Settings](/api/professional-settings/get) - Get deposit requirements
+- [Create Payment](/api/payments/create) - Register payment record (if applicable)
+
+## Security
+
+- Never expose your payment provider's secret keys
+- Validate all callback data from the payment provider
+- Use HTTPS for all payment-related operations
+- Implement webhook verification for payment notifications

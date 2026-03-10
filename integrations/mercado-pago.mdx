@@ -1,0 +1,288 @@
+---
+title: 'Mercado Pago Integration'
+description: 'Payment processing integration with Mercado Pago for appointment deposits'
+---
+
+## Overview
+
+Zenda integrates with Mercado Pago to handle payment processing for appointment confirmations. The system uses a deposit ("seña") mechanism where clients pay a configurable amount to confirm their reservation.
+
+<Info>
+The deposit requirement can be configured per professional through the `professional_settings` table.
+</Info>
+
+## How It Works
+
+<Steps>
+  <Step title="Payment Preference Creation">
+    When a client books an appointment that requires a deposit, Zenda creates a Mercado Pago payment preference with the reservation details.
+  </Step>
+  
+  <Step title="Client Payment">
+    The client is redirected to Mercado Pago's checkout page to complete the payment.
+  </Step>
+  
+  <Step title="Webhook Notification">
+    After payment approval, Mercado Pago sends a webhook notification to Zenda's server.
+  </Step>
+  
+  <Step title="Reservation Confirmation">
+    Zenda verifies the payment status and creates the reservation in the database with the associated payment record.
+  </Step>
+</Steps>
+
+## Payment Preference Creation
+
+The `createPreference` method generates a Mercado Pago payment link:
+
+```typescript
+// server/src/modules/reservations/reservations.service.ts:80-96
+async createPreference({ infoReservation }: { infoReservation: CreateReservationDto }) {
+  const preference = await new Preference(this.mercadoPago.getMercadoPago() as any).create({
+    body: {
+      items: [{
+        id: infoReservation.reservation.id,
+        title: "Pago de seña de reserva",
+        quantity: 1,
+        unit_price: infoReservation.deposit_amount
+      }],
+      metadata: {
+        infoReservation
+      },
+      notification_url: `${this.serverUrl}/reservations/create-with-payment`
+    }
+  })
+  return { data: preference.init_point }
+}
+```
+
+**Key Components:**
+- **title**: Display name shown to the user ("Pago de seña de reserva")
+- **unit_price**: Deposit amount from professional settings
+- **metadata**: Stores the complete reservation information for later retrieval
+- **notification_url**: Webhook endpoint for payment notifications
+
+## Webhook Handling
+
+When Mercado Pago processes a payment, it sends a notification to the configured webhook URL:
+
+```typescript
+// server/src/modules/reservations/reservations.controller.ts:43-56
+@Post('/create-with-payment')
+async createReservationWithPayment(@Body() infoPayment) {
+  const paymentId = extractPaymentId(infoPayment);
+  if (!paymentId) return { status: 200 };
+  const data = await this.reservationsService.createReservationWithPayment(infoPayment);
+  return { data, status: 200 }
+}
+```
+
+### Payment Processing Flow
+
+```typescript
+// server/src/modules/reservations/reservations.service.ts:39-79
+async createReservationWithPayment(infoPayment) {
+  const localSupabaseClient = await this.supabaseService.getClient();
+  const payment = await new Payment(this.mercadoPago.getMercadoPago()).get({ id: infoPayment.data.id });
+
+  const { info_reservation } = payment.metadata;
+  const { deposit_amount, reservation } = info_reservation;
+  
+  if (payment.status === "approved") {
+    const newReservation = formattedReservation(reservation);
+
+    const responseReservation = await localSupabaseClient
+      .from('reservations')
+      .insert(newReservation)
+      .select()
+      .single();
+
+    if (!responseReservation.error) {
+      const newPayment = {
+        reservation_id: responseReservation.data.id,
+        amount: deposit_amount,
+        status: "PAID",
+        payment_provider: "Mercado Pago",
+        external_payment_id: payment.id,
+      }
+      responsePayment = await this.PaymentsService.create(newPayment);
+    }
+
+    return {
+      reservation: responseReservation,
+      payment: responsePayment
+    }
+  }
+}
+```
+
+<Note>
+The system only creates the reservation if the payment status is "approved". The reservation information is retrieved from the payment metadata.
+</Note>
+
+## Deposit System (Seña)
+
+The deposit requirement is configured at the professional level:
+
+### Professional Settings
+
+```typescript
+// server/shared/db/professional_settings.ts:9-10
+requires_deposit: boolean
+deposit_amount: number | null
+```
+
+### Reservation Without Payment
+
+For professionals who don't require deposits, or for manual blocks by the professional themselves:
+
+```typescript
+// server/src/modules/reservations/reservations.controller.ts:27-40
+@Post('/create-without-payment')
+async createReservationWithoutPayment(@Body() infoPayment) {
+  const responseSettings = await this.professionalSettingsxService.get();
+  const objectReturn: any = { data: {}, status: 1 }
+  
+  if (responseSettings.data) {
+    const requiresDeposit = responseSettings.data[0].requires_deposit;
+    const { client_id, professional_id } = infoPayment;
+    const isManualBlock = client_id === professional_id;
+    
+    if (!requiresDeposit || isManualBlock) {
+      const data = await this.reservationsService.createReservationWithoutPayment(infoPayment);
+      objectReturn.data = data;
+      objectReturn.status = 200;
+    }
+  }
+  return objectReturn;
+}
+```
+
+<Warning>
+Reservations without payment are only allowed when:
+- The professional has `requires_deposit` set to `false`, OR
+- It's a manual block by the professional (`client_id === professional_id`)
+</Warning>
+
+## Configuration
+
+### Environment Variables
+
+<CodeGroup>
+```bash Server (.env)
+TEST_MP_ACCESS_TOKEN=your_mercado_pago_access_token
+SERVER_URL=https://your-api-domain.com
+```
+</CodeGroup>
+
+### Mercado Pago Service Initialization
+
+```typescript
+// server/src/modules/mercado-pago/mercado-pago.service.ts:6-18
+@Injectable()
+export class MercadoPagoService {
+  private readonly mercadoPago: MercadoPagoConfig;
+
+  constructor(private configService: ConfigService) {
+    this.mercadoPago = new MercadoPagoConfig({
+      accessToken: this.configService.get<string>('config.mp_access_token') || "a"!,
+    });
+  }
+  
+  getMercadoPago() {
+    return this.mercadoPago;
+  }
+}
+```
+
+### Configuration Mapping
+
+```typescript
+// server/src/config/configuration-enviroment.ts:3-8
+export default registerAs('config', () => ({
+  supabase_url: process.env.SUPABASE_URL,
+  supabase_api_key: process.env.SUPABASE_API_KEY,
+  mp_access_token: process.env.TEST_MP_ACCESS_TOKEN,
+  server_url: process.env.SERVER_URL
+}));
+```
+
+## Payment Records
+
+Payments are stored in the `payments` table with the following structure:
+
+```typescript
+// server/shared/db/payment.ts
+export type PaymentStatus = "PENDING" | "PAID" | "FAILED";
+
+export interface PaymentProps {
+  id: string;
+  reservation_id: string;
+  amount: number;
+  status: PaymentStatus;
+  payment_provider: string;
+  external_payment_id?: string | null;
+  created_at: string;
+}
+```
+
+**Key Fields:**
+- **reservation_id**: Links to the `reservations` table
+- **amount**: Deposit amount paid
+- **status**: Payment status (PENDING, PAID, FAILED)
+- **payment_provider**: Always "Mercado Pago" for MP payments
+- **external_payment_id**: Mercado Pago's payment ID for reference
+
+## API Endpoints
+
+### Create Payment Preference
+
+```http
+POST /reservations/payment
+```
+
+Generates a Mercado Pago payment link for a reservation.
+
+**Request Body:**
+```json
+{
+  "reservation": {
+    "id": "reservation-uuid",
+    "client_id": "user-uuid",
+    "professional_id": "professional-uuid",
+    "start_time": "2026-03-15T10:00:00",
+    "end_time": "2026-03-15T11:00:00",
+    "status": "PENDING",
+    "session_mode": "VIRTUAL"
+  },
+  "deposit_amount": 5000
+}
+```
+
+**Response:**
+```json
+{
+  "data": "https://www.mercadopago.com/checkout/v1/redirect?pref_id=..."
+}
+```
+
+### Webhook Endpoint
+
+```http
+POST /reservations/create-with-payment
+```
+
+Receives Mercado Pago payment notifications and creates the reservation.
+
+<Info>
+This endpoint is called automatically by Mercado Pago. It's configured in the `notification_url` field when creating the payment preference.
+</Info>
+
+## Related Files
+
+- `server/src/modules/mercado-pago/mercado-pago.service.ts` - Mercado Pago client initialization
+- `server/src/modules/reservations/reservations.service.ts` - Payment preference and reservation creation
+- `server/src/modules/reservations/reservations.controller.ts` - Payment API endpoints
+- `server/src/modules/payments/payments.service.ts` - Payment record storage
+- `server/shared/db/payment.ts` - Payment database schema
+- `server/shared/db/professional_settings.ts` - Deposit configuration schema

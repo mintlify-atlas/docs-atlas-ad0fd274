@@ -1,0 +1,603 @@
+---
+title: Reservations Management
+description: View, filter, and manage all patient appointments and calendar blocks
+---
+
+The reservations management system gives you complete control over your appointment schedule. View all bookings, filter by various criteria, manage appointment status, and create manual calendar blocks.
+
+## Accessing Reservations
+
+Access your reservations through:
+
+- **Dashboard** - "Ver más" button in the upcoming appointments section
+- **Quick access links** - "Reservation history" link
+- **Direct URL** - `/admin/dashboard/reservation-history`
+
+## Reservation Data Structure
+
+Each reservation in the system follows this interface:
+
+```typescript
+type SessionModalityToUser = "Virtual" | "Presencial" | "";
+type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED";
+
+interface Reservation {
+  id: string;                    // Unique reservation ID
+  
+  client_id: string;             // Patient identifier
+  professional_id: string;       // Your professional ID
+  
+  start_time: string;            // ISO timestamp for session start
+  end_time: string;              // ISO timestamp for session end
+  
+  status: ReservationStatus;     // Current reservation status
+  session_modality: SessionModalityToUser;  // Virtual, in-person, or empty
+  
+  created_at: string;            // When reservation was created
+}
+```
+
+Reference: `/workspace/source/server/src/modules/reservations/types/reservations.ts:2-19`
+
+## Fetching All Reservations
+
+Reservations are fetched using the `ReservationsStore`:
+
+```typescript
+getAllReservations: async ({ professionalId }) => {
+  const localUrl = serverConfig.reservations.fetchReservationsByProfessional({
+    professionalId,
+  });
+  
+  try {
+    const response = await axiosClient(localUrl);
+    const reservations: Reservation[] = response.data.data;
+    
+    // Sort by start time (earliest first)
+    const sortReservations = [...reservations].sort(
+      (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+    );
+    
+    set({ allReservations: sortReservations });
+    return sortReservations;
+  } catch (error) {
+    set({ allReservations: [] });
+    throw error;
+  }
+}
+```
+
+Reference: `/workspace/source/store/ReservationsStore.ts:69-91`
+
+<Info>
+Reservations for all professionals are sorted by start time in ascending order, showing your next upcoming appointments first.
+</Info>
+
+## Reservation Types
+
+Your reservation list includes different types of calendar entries:
+
+<CardGroup cols={3}>
+  <Card title="Patient Sessions" icon="user">
+    Regular appointments booked by patients
+  </Card>
+  <Card title="Manual Blocks" icon="lock">
+    Time slots you've manually blocked off
+  </Card>
+  <Card title="Payment Pending" icon="clock">
+    Bookings awaiting payment confirmation
+  </Card>
+</CardGroup>
+
+### Identifying Manual Blocks
+
+Manual blocks are identified by:
+
+```typescript
+// A manual block has client_id === professional_id
+const isManualBlock = reservation.client_id === reservation.professional_id;
+```
+
+The dashboard filters these out, but the calendar shows them:
+
+```typescript
+const filteredReservations = localReservations.filter(
+  (res: Reservation) => res.client_id !== professionalId
+);
+```
+
+Reference: `/workspace/source/app/core/admin/components/home/DashboardAdmin.tsx:43`
+
+## Reservation History Table
+
+The reservation history displays appointments in a comprehensive table format.
+
+### Table Columns
+
+The table includes these columns:
+
+| Column | Description | Reference |
+|--------|-------------|----------|
+| Cliente | Patient name | Line 64 |
+| Fecha y horario | Date and time of appointment | Line 66 |
+| Modalidad | Session type (Virtual/Presencial) | Line 67 |
+| Estado de pago | Payment status | Line 68 |
+| Acciones | Actions (view, cancel) | Line 69 |
+
+Reference: `/workspace/source/app/core/admin/components/reservations/HistoryReservations.tsx:60-71`
+
+### Table Implementation
+
+```tsx
+<Table id="table-reservations">
+  <TableHeader>
+    <TableRow className="header-titles-reservations">
+      <TableHead className="col-cliente">Cliente</TableHead>
+      <TableHead className="col-fecha">Fecha y horario</TableHead>
+      <TableHead className="col-modalidad">Modalidad</TableHead>
+      <TableHead className="col-estado">Estado de pago</TableHead>
+      <TableHead className="col-acciones">Acciones</TableHead>
+    </TableRow>
+  </TableHeader>
+  <TableBody>
+    {reservations.map(res => (
+      <TableRow key={res.id}>
+        <CardReservationHistory reservationByUser={res} />
+      </TableRow>
+    ))}
+  </TableBody>
+</Table>
+```
+
+## Pagination
+
+Reservation list includes pagination for easy navigation:
+
+### Pagination Configuration
+
+- **Items per page:** 8 reservations
+- **Navigation:** Previous/Next buttons and page numbers
+- **Page indicators:** Active page highlighting and ellipsis for skipped pages
+
+```typescript
+const ITEMS_PER_PAGE = 8;
+```
+
+Reference: `/workspace/source/app/core/admin/components/reservations/HistoryReservations.tsx:20`
+
+### Pagination Interface
+
+```typescript
+interface HistoryReservationsProps {
+  reservations: ResponseUsersReservations[];
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+  isUsersRoute: boolean;
+}
+```
+
+Reference: `/workspace/source/app/core/admin/components/reservations/HistoryReservations.tsx:22-28`
+
+### Page Number Logic
+
+The pagination intelligently displays page numbers:
+
+```typescript
+const getPageNumbers = (): (number | "ellipsis")[] => {
+  return Array.from({ length: totalPages }, (_, i) => i + 1)
+    .filter(page => {
+      if (totalPages <= 5) return true;          // Show all if 5 or fewer
+      if (page === 1 || page === totalPages) return true;  // Always show first/last
+      if (Math.abs(page - currentPage) <= 1) return true;  // Show adjacent pages
+      return false;
+    })
+    .reduce<(number | "ellipsis")[]>((acc, page, idx, arr) => {
+      if (idx > 0 && page - (arr[idx - 1] as number) > 1) acc.push("ellipsis");
+      acc.push(page);
+      return acc;
+    }, []);
+};
+```
+
+Reference: `/workspace/source/app/core/admin/components/reservations/HistoryReservations.tsx:38-51`
+
+<Note>
+Pagination automatically collapses distant pages with ellipsis (...) for cleaner navigation when you have many appointments.
+</Note>
+
+## Filtering Reservations
+
+Filter your reservations by:
+
+### By Date
+
+- View appointments for specific days, weeks, or months
+- Calendar integration allows date-based filtering
+- See all appointments in a selected date range
+
+### By Patient
+
+- Select a patient to see only their appointments
+- Available in the patient management view
+- Useful for reviewing patient history
+
+### By Status
+
+- **PENDING** - Awaiting confirmation or payment
+- **CONFIRMED** - Appointment is confirmed
+- **CANCELLED** - Appointment was cancelled
+
+```typescript
+type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED";
+```
+
+Reference: `/workspace/source/server/src/modules/reservations/types/reservations.ts:4`
+
+### By Modality
+
+- **Virtual** - Online video sessions
+- **Presencial** - In-person sessions at your office
+
+```typescript
+type SessionModalityToUser = "Virtual" | "Presencial" | "";
+```
+
+Reference: `/workspace/source/server/src/modules/reservations/types/reservations.ts:2`
+
+## Calendar View
+
+View reservations in calendar format for a visual overview:
+
+### Calendar Features
+
+<CardGroup cols={2}>
+  <Card title="Multiple Views" icon="calendar">
+    Switch between day, week, and month views
+  </Card>
+  <Card title="Color Coding" icon="palette">
+    Different colors for sessions vs. manual blocks
+  </Card>
+  <Card title="Click to View" icon="mouse-pointer">
+    Click any event to see details or delete
+  </Card>
+  <Card title="Manual Blocks" icon="plus">
+    Create time blocks to mark unavailable slots
+  </Card>
+</CardGroup>
+
+### Calendar Implementation
+
+The calendar uses `react-big-calendar` with dayjs:
+
+```typescript
+import { Calendar, dayjsLocalizer } from "react-big-calendar";
+import dayjs from "dayjs";
+
+const localizer = dayjsLocalizer(dayjs);
+
+<Calendar
+  localizer={localizer}
+  events={events}
+  date={date}
+  view={view}
+  onView={setView}
+  onNavigate={setDate}
+  min={calendarSchedule?.min ?? undefined}
+  max={calendarSchedule?.max ?? undefined}
+  defaultView="day"
+  views={["day", "week", "month"]}
+  onSelectEvent={handleOpenModalDelete}
+/>
+```
+
+Reference: `/workspace/source/app/core/admin/components/calendar/CalendarAdmin.tsx:174-185`
+
+### Calendar Schedule Bounds
+
+The calendar respects your working hours:
+
+```typescript
+const [calendarSchedule, setCalendarSchedule] = useState<PropsCalendarSchedule>();
+
+// Set in calendar props
+min={calendarSchedule?.min ?? undefined}  // Your work start time
+max={calendarSchedule?.max ?? undefined}  // Your work end time
+```
+
+Reference: `/workspace/source/app/core/admin/components/calendar/CalendarAdmin.tsx:37` and `:181-182`
+
+## Event Styling
+
+Calendar events are styled based on type:
+
+```typescript
+eventPropGetter={(event) => ({
+  className: `event-type-${event.title === "Sesión" ? "Sesion" : "bloqueo-manual"}`
+})}
+```
+
+Reference: `/workspace/source/app/core/admin/components/calendar/CalendarAdmin.tsx:194-196`
+
+- **Sesión** - Regular patient sessions
+- **bloqueo-manual** - Manual time blocks
+
+## Creating Manual Blocks
+
+### Why Manual Blocks?
+
+Block off time slots when you're unavailable:
+
+- Lunch breaks
+- Administrative tasks
+- Personal appointments
+- Vacation days
+- Buffer time between sessions
+
+### Creating a Block
+
+<Steps>
+  <Step title="Open Block Dialog">
+    Click the "Bloqueo manual" button in the calendar sidebar
+  </Step>
+  <Step title="Select Date">
+    Choose the date to block (must be tomorrow or later)
+  </Step>
+  <Step title="Choose Start Time">
+    Select when the block begins
+  </Step>
+  <Step title="Choose End Time">
+    Select when the block ends (must not overlap existing events)
+  </Step>
+  <Step title="Submit">
+    Create the block - it appears immediately on your calendar
+  </Step>
+</Steps>
+
+### Block Validation
+
+The system validates blocks to prevent overlaps:
+
+```typescript
+const hasOverlap = (start: string, end: string) => {
+  const newStart = dayjs(`${blockDate} ${start}`);
+  const newEnd = dayjs(`${blockDate} ${end}`);
+  return occupiedRanges.some(r => 
+    newStart.isBefore(r.end) && newEnd.isAfter(r.start)
+  );
+};
+
+if (hasOverlap(blockStartTime, blockEndTime)) {
+  alert("El bloqueo se solapa con una reserva o bloqueo existente");
+  return;
+}
+```
+
+Reference: `/workspace/source/app/core/admin/components/calendar/CalendarAdmin.tsx:57-61` and `:131-134`
+
+<Warning>
+You cannot create a manual block that overlaps with an existing appointment or another block. The system will alert you and prevent the creation.
+</Warning>
+
+### Time Slot Availability
+
+Available start times are calculated based on existing events:
+
+```typescript
+const canStartAt = (time: string) => {
+  const start = dayjs(`${blockDate} ${time}`);
+  return !occupiedRanges.some(r =>
+    start.isSame(r.start) || (start.isAfter(r.start) && start.isBefore(r.end))
+  );
+};
+```
+
+Reference: `/workspace/source/app/core/admin/components/calendar/CalendarAdmin.tsx:63-68`
+
+### Creating Block Request
+
+Blocks are created via the API:
+
+```typescript
+await createNewBlock({
+  block: { 
+    date: blockDate, 
+    start: blockStartTime, 
+    end: blockEndTime 
+  },
+  professionalId: session?.user.id || "",
+});
+await reloadCalendar();
+```
+
+Reference: `/workspace/source/app/core/admin/components/calendar/CalendarAdmin.tsx:135-139`
+
+## Deleting Reservations and Blocks
+
+### Deleting Manual Blocks
+
+Remove blocks you no longer need:
+
+1. Click the block in the calendar
+2. Confirm deletion in the modal
+3. Block is removed immediately
+
+### Block Deletion Implementation
+
+```typescript
+const handleOpenModalDelete = (event: InterfaceEventProps) => {
+  if (event.title !== "Sesión") {
+    setReservationToDelete(event);
+    setBlockToDelete(formatBlockEventForUI(event));
+    setDeleteModalOpen(true);
+  }
+};
+
+const handleDeleteSubmit = async () => {
+  await deleteReservation({ reservationId: reservationToDelete?.id || "" });
+  setDeleteModalOpen(false);
+  await reloadCalendar();
+};
+```
+
+Reference: `/workspace/source/app/core/admin/components/calendar/CalendarAdmin.tsx:143-155`
+
+<Info>
+Only manual blocks (bloqueo-manual) can be deleted from the calendar. Patient sessions (Sesión) cannot be deleted directly - they must be cancelled through the proper cancellation flow.
+</Info>
+
+### Cancelling Reservations
+
+To cancel a patient appointment:
+
+```typescript
+deleteReservation: async ({ reservationId }) => {
+  const localUrl = `${serverConfig.reservations.common}/${reservationId}`;
+  
+  try {
+    await axiosClient.delete(localUrl);
+  } catch (error) {
+    return error;
+  }
+}
+```
+
+Reference: `/workspace/source/store/ReservationsStore.ts:93-101`
+
+<Warning>
+Cancelling a patient reservation will notify the patient and remove the appointment from both calendars. This action should be used carefully.
+</Warning>
+
+## Viewing Reservation Details
+
+Click any reservation to view full details:
+
+### Detail View Includes
+
+- **Patient information** - Name and contact details
+- **Session details** - Date, time, duration, modality
+- **Payment status** - Whether deposit was paid
+- **Reservation status** - Current state (pending, confirmed, cancelled)
+- **Actions** - Cancel or modify the appointment
+
+Access the detail view at `/admin/dashboard/reserve/{reservationId}`
+
+## Calendar Time Slots
+
+Time slots are generated based on your session duration:
+
+```typescript
+const timeSlots = useMemo(() => {
+  if (!calendarSchedule?.min || !calendarSchedule?.max) return [];
+  const start = dayjs(calendarSchedule.min);
+  const end = dayjs(calendarSchedule.max);
+  const slots: string[] = [];
+  let current = start;
+  while (current.isBefore(end)) {
+    slots.push(current.format("HH:mm"));
+    current = current.add(sessionMinutesDuration + 10, "minute");
+  }
+  return slots;
+}, [calendarSchedule, sessionMinutesDuration]);
+```
+
+Reference: `/workspace/source/app/core/admin/components/calendar/CalendarAdmin.tsx:70-81`
+
+<Note>
+Time slots include a 10-minute buffer after each session duration. For example, if your session is 45 minutes, slots appear every 55 minutes (45 + 10).
+</Note>
+
+## Calendar Legend
+
+The calendar includes a legend to identify event types:
+
+- **Sesión** - Patient appointments (one color)
+- **Bloqueo manual** - Manual blocks (different color)
+
+Reference: `/workspace/source/app/core/admin/components/calendar/Legend.tsx`
+
+## Empty States
+
+When no reservations exist:
+
+```tsx
+<TableRow>
+  <td colSpan={5}>
+    <p className="p-5 opacity-70 text-[.8rem]">
+      Todavía no hay reservas creadas
+    </p>
+  </td>
+</TableRow>
+```
+
+Reference: `/workspace/source/app/core/admin/components/reservations/HistoryReservations.tsx:88-94`
+
+## Sorting Reservations
+
+Reservations are automatically sorted:
+
+- **Professional view** - By start time ascending (next appointments first)
+- **Patient view** - By start time descending (most recent first)
+
+```typescript
+// Professional view (ascending)
+const sortReservations = [...reservations].sort(
+  (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+);
+
+// Patient view (descending)
+const sortReservations = [...reservations].sort(
+  (a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+);
+```
+
+Reference: `/workspace/source/store/ReservationsStore.ts:79-83` and `:40-44`
+
+## Reloading Calendar Data
+
+Refresh your calendar to see latest bookings:
+
+```typescript
+const reloadCalendar = async () => {
+  const s = await setSession();
+  if (!s?.user?.id) return;
+  const data = await getAllReservations({ professionalId: s.user.id });
+  setEvents(getCalendarEvents({ reservations: data, professionalId: s.user.id }));
+  setCalendarSchedule(await getCalendarSchedule());
+};
+```
+
+Reference: `/workspace/source/app/core/admin/components/calendar/CalendarAdmin.tsx:95-101`
+
+The calendar automatically reloads after:
+- Creating a manual block
+- Deleting a block or reservation
+- Component initialization
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Regular Review" icon="calendar-check">
+    Check your reservation list daily to prepare for upcoming sessions
+  </Card>
+  <Card title="Use Manual Blocks" icon="clock">
+    Block off time for breaks and non-session activities
+  </Card>
+  <Card title="Monitor Status" icon="eye">
+    Keep track of pending vs confirmed appointments
+  </Card>
+  <Card title="Update Promptly" icon="bell">
+    Cancel appointments early to allow patients to rebook
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dashboard" icon="home" href="/professionals/dashboard">
+    Return to your professional dashboard
+  </Card>
+  <Card title="Patient Management" icon="users" href="/professionals/patient-management">
+    View patient-specific reservation histories
+  </Card>
+</CardGroup>

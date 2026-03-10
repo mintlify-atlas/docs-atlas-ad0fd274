@@ -1,0 +1,104 @@
+---
+title: 'Profiles Overview'
+description: 'Manage user profiles and information'
+icon: 'user'
+---
+
+## Overview
+
+The Profiles API allows you to retrieve and update user profile information in the Zenda system. Profiles contain user details such as name, email, role, and other personal information.
+
+## Base Endpoint
+
+```
+/api/profiles
+```
+
+## Available Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Get All Profiles" icon="users" href="/api/profiles/get-all">
+    Retrieve all profiles (admin only)
+  </Card>
+  <Card title="Get One Profile" icon="user" href="/api/profiles/get-one">
+    Get a specific user profile by ID
+  </Card>
+  <Card title="Update Profile" icon="pen" href="/api/profiles/update">
+    Update user profile information
+  </Card>
+</CardGroup>
+
+## Profile Object
+
+User profiles follow this structure:
+
+```typescript
+interface Profile {
+  id: string;
+  email: string;
+  full_name: string;
+  role: "USER" | "ADMIN";
+  is_active: boolean;
+  birth_date?: string;
+  is_profile_complete: boolean;
+  created_at: string;
+}
+```
+
+## Profile Fields
+
+### Basic Information
+- **id**: Unique identifier for the user
+- **email**: User's email address
+- **full_name**: User's full name
+- **role**: User role (`USER` or `ADMIN`)
+
+### Status Fields
+- **is_active**: Whether the user account is active
+- **is_profile_complete**: Whether the user has completed their profile setup
+- **created_at**: When the profile was created
+
+### Optional Fields
+- **birth_date**: User's date of birth (ISO 8601 date string)
+
+## User Roles
+
+Profiles can have different roles:
+- `USER` - Standard user with basic permissions
+- `ADMIN` - Administrator with elevated permissions
+
+## Authentication
+
+All profile endpoints require Bearer token authentication. Some endpoints also require specific role permissions.
+
+## Common Use Cases
+
+- Display user information in dashboards
+- Allow users to update their profiles
+- Manage user accounts (admin)
+- Verify user details before reservations
+- Check if profile setup is complete
+
+## Permission Levels
+
+### Standard Users
+- Can view their own profile
+- Can update their own profile information
+
+### Administrators
+- Can view all profiles
+- Can update any profile
+- Can manage user roles and status
+
+## Next Steps
+
+Explore the individual endpoints:
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="book" href="/api/profiles/get-one">
+    View detailed endpoint documentation
+  </Card>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn about API authentication
+  </Card>
+</CardGroup>

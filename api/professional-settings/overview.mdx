@@ -1,0 +1,100 @@
+---
+title: 'Professional Settings Overview'
+description: 'Manage professional configuration and preferences'
+icon: 'gear'
+---
+
+## Overview
+
+The Professional Settings API allows you to retrieve and update configuration settings for professionals in the Zenda system. These settings control availability, session parameters, payment requirements, and other preferences.
+
+## Base Endpoint
+
+```
+/api/professional-settings
+```
+
+## Available Endpoints
+
+<CardGroup cols={2}>
+  <Card title="Get Settings" icon="eye" href="/api/professional-settings/get">
+    Retrieve current professional settings
+  </Card>
+  <Card title="Update Settings" icon="pen" href="/api/professional-settings/update">
+    Update professional configuration
+  </Card>
+</CardGroup>
+
+## Settings Object
+
+Professional settings include the following configuration:
+
+```typescript
+interface ProfessionalSettings {
+  user_id: string;
+  session_duration_minutes: number; // 15-180
+  work_days: string;
+  work_start_time: string;
+  work_end_time: string;
+  reservation_window_days: number; // 1-365
+  requires_deposit: boolean;
+  deposit_amount?: number | null;
+  session_modalities: "Virtual" | "Presencial" | "BOTH";
+  office_address?: string | null;
+}
+```
+
+## Configuration Parameters
+
+### Session Duration
+- **Range**: 15 to 180 minutes
+- **Purpose**: Defines how long each appointment session lasts
+- **Example**: 60 minutes for a standard consultation
+
+### Work Schedule
+- **work_days**: String representing available days (format varies by implementation)
+- **work_start_time**: When the professional starts accepting appointments
+- **work_end_time**: When the professional stops accepting appointments
+
+### Reservation Window
+- **Range**: 1 to 365 days
+- **Purpose**: How far in advance clients can book appointments
+- **Example**: 30 days means clients can book up to 30 days ahead
+
+### Payment Settings
+- **requires_deposit**: Whether payment is required to book
+- **deposit_amount**: Amount required if deposits are enabled (can be null)
+
+### Session Modalities
+
+Professionals can offer sessions in different formats:
+- `Virtual` - Online/remote sessions only
+- `Presencial` - In-person sessions only
+- `BOTH` - Both virtual and in-person options available
+
+### Office Address
+- Optional field for in-person session locations
+- Required if offering `Presencial` or `BOTH` modalities
+
+## Authentication
+
+All professional settings endpoints require Bearer token authentication. Some endpoints also require specific roles.
+
+## Use Cases
+
+- Configure professional availability and schedule
+- Set session duration and booking windows
+- Enable or disable payment requirements
+- Define session types (virtual vs in-person)
+- Update office location for in-person sessions
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Get Settings" icon="eye" href="/api/professional-settings/get">
+    Learn how to retrieve settings
+  </Card>
+  <Card title="Update Settings" icon="pen" href="/api/professional-settings/update">
+    Learn how to update configuration
+  </Card>
+</CardGroup>

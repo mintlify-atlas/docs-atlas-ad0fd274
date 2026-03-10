@@ -1,0 +1,102 @@
+---
+title: 'Reservations Overview'
+description: 'Manage appointment reservations'
+icon: 'calendar'
+---
+
+## Overview
+
+The Reservations API allows you to create, retrieve, and manage appointment reservations in the Zenda system. All endpoints require Bearer token authentication.
+
+## Base Endpoint
+
+```
+/api/reservations
+```
+
+## Available Endpoints
+
+### Creating Reservations
+
+<CardGroup cols={2}>
+  <Card title="Create Without Payment" icon="plus" href="/api/reservations/create-without-payment">
+    Create a reservation without requiring payment
+  </Card>
+  <Card title="Create With Payment" icon="credit-card" href="/api/reservations/create-with-payment">
+    Create a reservation with payment
+  </Card>
+</CardGroup>
+
+### Retrieving Reservations
+
+<CardGroup cols={2}>
+  <Card title="Get All Reservations" icon="list" href="/api/reservations/get-all">
+    Retrieve all reservations in the system
+  </Card>
+  <Card title="Get By User" icon="user" href="/api/reservations/get-by-user">
+    Get reservations for a specific user
+  </Card>
+  <Card title="Get By Professional" icon="user-doctor" href="/api/reservations/get-by-professional">
+    Get reservations for a specific professional
+  </Card>
+  <Card title="Get One" icon="file" href="/api/reservations/get-one">
+    Retrieve a single reservation by ID
+  </Card>
+</CardGroup>
+
+### Availability & Management
+
+<CardGroup cols={2}>
+  <Card title="Get Availability" icon="clock" href="/api/reservations/get-availability">
+    Check professional availability
+  </Card>
+  <Card title="Delete Reservation" icon="trash" href="/api/reservations/delete">
+    Delete a reservation
+  </Card>
+</CardGroup>
+
+## Reservation Object
+
+All reservation objects follow this structure:
+
+```typescript
+interface Reservation {
+  id: string;
+  client_id: string;
+  professional_id: string;
+  start_time: string;
+  end_time: string;
+  status: "PENDING" | "CONFIRMED" | "CANCELLED";
+  session_modality: "Virtual" | "Presencial" | "";
+  created_at: string;
+}
+```
+
+## Session Modalities
+
+Reservations support different session modalities:
+
+- `Virtual` - Online/remote sessions
+- `Presencial` - In-person sessions at the professional's office
+- Empty string - Not specified
+
+## Reservation Status
+
+Reservations can have the following statuses:
+
+- `PENDING` - Reservation created but not confirmed
+- `CONFIRMED` - Reservation confirmed
+- `CANCELLED` - Reservation cancelled
+
+## Authentication
+
+All reservation endpoints require authentication. See the [Authentication](/api/authentication) guide for details.
+
+## Next Steps
+
+Explore the individual endpoint documentation to learn how to:
+
+- Create reservations with or without payment
+- Query reservations by user or professional
+- Check availability for scheduling
+- Manage existing reservations

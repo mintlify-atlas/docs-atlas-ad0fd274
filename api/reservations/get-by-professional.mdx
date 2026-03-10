@@ -1,0 +1,177 @@
+---
+title: 'Get Reservations By Professional'
+description: 'Retrieve all reservations for a specific professional'
+icon: 'user-doctor'
+---
+
+## Endpoint
+
+```
+GET /api/reservations/professional/:professionalId
+```
+
+## Description
+
+Retrieves all reservations assigned to a specific professional by their ID.
+
+See implementation in `server/src/modules/reservations/reservations.controller.ts:109-127`.
+
+## Authentication
+
+<Info>
+  This endpoint requires Bearer token authentication. Include your access token in the `Authorization` header.
+</Info>
+
+## Path Parameters
+
+<ParamField path="professionalId" type="string" required>
+  The unique identifier of the professional whose reservations you want to retrieve
+  
+  Example: `prof456`
+</ParamField>
+
+## Response
+
+<ResponseField name="status" type="number">
+  HTTP status code (200 for success)
+</ResponseField>
+
+<ResponseField name="message" type="string">
+  Success message including the professional ID
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  Array of reservation objects for the specified professional
+  
+  <Expandable title="Reservation object">
+    <ResponseField name="id" type="string">
+      Unique identifier for the reservation
+    </ResponseField>
+    
+    <ResponseField name="client_id" type="string">
+      ID of the client
+    </ResponseField>
+    
+    <ResponseField name="professional_id" type="string">
+      ID of the professional (matches the path parameter)
+    </ResponseField>
+    
+    <ResponseField name="start_time" type="string">
+      Start time in ISO 8601 format
+    </ResponseField>
+    
+    <ResponseField name="end_time" type="string">
+      End time in ISO 8601 format
+    </ResponseField>
+    
+    <ResponseField name="status" type="string">
+      Reservation status: `PENDING`, `CONFIRMED`, or `CANCELLED`
+    </ResponseField>
+    
+    <ResponseField name="session_modality" type="string">
+      Session type: `Virtual`, `Presencial`, or empty string
+    </ResponseField>
+    
+    <ResponseField name="created_at" type="string">
+      Creation timestamp in ISO 8601 format
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Example Request
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET https://your-domain.com/api/reservations/professional/prof456 \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+```typescript TypeScript
+const getProfessionalReservations = async (professionalId: string) => {
+  const response = await fetch(`https://your-domain.com/api/reservations/professional/${professionalId}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
+    }
+  });
+  
+  const data = await response.json();
+  return data;
+};
+
+// Usage
+const reservations = await getProfessionalReservations('prof456');
+```
+
+</CodeGroup>
+
+## Example Response
+
+```json
+{
+  "status": 200,
+  "message": "SOLICITASTE TODAS LAS RESERVAS DEL PROFESIONAL CON EL ID: prof456 EXITOSAMENTE",
+  "data": [
+    {
+      "id": "res789",
+      "client_id": "abc123",
+      "professional_id": "prof456",
+      "start_time": "2026-03-15T10:00:00Z",
+      "end_time": "2026-03-15T11:00:00Z",
+      "status": "CONFIRMED",
+      "session_modality": "Virtual",
+      "created_at": "2026-03-10T08:30:00Z"
+    },
+    {
+      "id": "res790",
+      "client_id": "def456",
+      "professional_id": "prof456",
+      "start_time": "2026-03-16T14:00:00Z",
+      "end_time": "2026-03-16T15:00:00Z",
+      "status": "PENDING",
+      "session_modality": "Presencial",
+      "created_at": "2026-03-11T09:15:00Z"
+    }
+  ]
+}
+```
+
+## Error Responses
+
+### Bad Request
+
+```json
+{
+  "statusCode": 400,
+  "message": "Error al obtener las reservas del profesional",
+  "error": "Bad Request"
+}
+```
+
+### Unauthorized
+
+```json
+{
+  "statusCode": 401,
+  "message": "Token inválido o expirado",
+  "error": "Unauthorized"
+}
+```
+
+## Use Cases
+
+- Display a professional's schedule and appointments
+- Build a calendar view for professionals
+- Show upcoming client sessions
+- Manage and organize appointments
+- Calculate availability based on existing reservations
+
+## Notes
+
+- Returns an empty array if the professional has no reservations
+- All reservations for the professional are returned regardless of status
+- Useful for building professional dashboards and schedules
+- To get reservations for a specific user, use [Get By User](/api/reservations/get-by-user)

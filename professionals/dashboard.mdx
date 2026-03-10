@@ -1,0 +1,138 @@
+---
+title: Professional Dashboard
+description: Overview of the professional dashboard and its main features
+---
+
+The professional dashboard is the central hub for mental health professionals using Zenda. It provides quick access to upcoming appointments, calendar management, patient information, and practice analytics.
+
+## Accessing the Dashboard
+
+After logging in as a professional, you'll be directed to `/admin/dashboard` which displays your personalized dashboard with real-time information about your practice.
+
+## Dashboard Overview
+
+The dashboard is divided into three main sections:
+
+<CardGroup cols={3}>
+  <Card title="Upcoming Appointments" icon="calendar">
+    View your next scheduled sessions with patient details
+  </Card>
+  <Card title="Practice Stats" icon="chart-line">
+    Track appointments today, confirmed sessions, and total bookings
+  </Card>
+  <Card title="Quick Access" icon="grid">
+    Navigate quickly to key features like calendar, settings, and patients
+  </Card>
+</CardGroup>
+
+## Main Dashboard Sections
+
+### Upcoming Appointments (Próximos Turnos)
+
+This section displays your next scheduled appointments. Each appointment card shows:
+
+- **Date and time** - When the session is scheduled
+- **Patient name** - Client information
+- **Session modality** - Virtual or in-person (Presencial)
+- **Quick navigation** - Click any appointment to view full details
+
+The dashboard shows the next 2 upcoming appointments. If you have no appointments scheduled, you'll see: "Aún no hay turnos asignados" (No appointments assigned yet).
+
+<Info>
+The appointments are fetched from the `ReservationsStore` which calls `getAllReservations()` to retrieve all sessions for the professional. See implementation in `/workspace/source/store/ReservationsStore.ts:69-91`.
+</Info>
+
+### Practice Statistics (Estado de la Agenda)
+
+Track key metrics about your practice:
+
+- **Appointments Today** (Turnos hoy) - Sessions scheduled for today
+- **Confirmed Appointments** (Turnos confirmados) - Sessions with confirmed status
+- **Total Appointments** (Total de turnos) - All scheduled sessions
+
+These statistics are calculated in real-time from your reservation data using the `getInfoTurns()` utility function referenced in `/workspace/source/app/core/admin/components/home/DashboardAdmin.tsx:46`.
+
+### Payment Alerts
+
+The dashboard includes an alerts section for pending payments. When there are no pending payments, you'll see: "No hay pagos pendientes" (No pending payments).
+
+### Quick Access Links
+
+Navigate quickly to essential features:
+
+- Calendar management
+- Professional settings
+- Patient list
+- Reservation history
+- And more
+
+These links are configured in the `QUICK_LINKS` constant referenced at `/workspace/source/app/core/admin/components/home/DashboardAdmin.tsx:12`.
+
+## Dashboard Implementation
+
+The dashboard component is built using React and integrates with several state management stores:
+
+```typescript
+// Key stores used in the dashboard
+const currentSession = useAuthStore(state => state.session);
+const currentGetAllReservations = useReservationsStore(state => state.getAllReservations);
+const currentGetProfessionalSettings = useProfessionalSettingsStore(state => state.getProfessionalSettings);
+```
+
+<Note>
+The dashboard automatically loads your professional settings on mount to ensure all features are properly configured. See `/workspace/source/app/core/admin/components/home/DashboardAdmin.tsx:32-34`.
+</Note>
+
+## Navigation
+
+From the dashboard, you can access:
+
+- **Full Calendar** - Click "Ver agenda completa" to view your complete schedule
+- **Appointment Details** - Click any appointment card to see full reservation details
+- **Reservation History** - Click "Ver más" to view all past and future appointments
+
+## Data Fetching
+
+The dashboard fetches data on component mount:
+
+```typescript
+useEffect(() => {
+  if (!currentSession) return;
+  
+  const fetchReservations = async () => {
+    const professionalId = currentSession.user.id;
+    const localReservations = await currentGetAllReservations({ professionalId });
+    
+    // Filter out manual blocks (where client_id === professional_id)
+    const filteredReservations = localReservations.filter(
+      (res: Reservation) => res.client_id !== professionalId
+    );
+    setAllReservations(filteredReservations);
+  };
+  
+  fetchReservations();
+}, [currentSession]);
+```
+
+Reference: `/workspace/source/app/core/admin/components/home/DashboardAdmin.tsx:36-59`
+
+<Warning>
+Manual calendar blocks (where `client_id` equals `professional_id`) are filtered out from the dashboard display to show only actual patient appointments.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Manage Schedule" icon="calendar" href="/professionals/schedule-management">
+    Configure your working hours and availability
+  </Card>
+  <Card title="View Reservations" icon="list" href="/professionals/reservations">
+    Manage all your appointments
+  </Card>
+  <Card title="Payment Settings" icon="credit-card" href="/professionals/payment-settings">
+    Configure payment and deposit requirements
+  </Card>
+  <Card title="Patient Management" icon="users" href="/professionals/patient-management">
+    View and manage patient information
+  </Card>
+</CardGroup>

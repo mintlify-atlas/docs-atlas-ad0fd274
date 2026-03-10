@@ -1,97 +1,152 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Zenda - Appointment Management for Mental Health Professionals"
+description: "Professional appointment scheduling designed specifically for mental health practitioners and their patients"
 ---
 
-## Setting up
+<div style={{
+  background: 'linear-gradient(135deg, #4c44e4 0%, #a49cf4 100%)',
+  borderRadius: '12px',
+  padding: '48px 32px',
+  marginBottom: '32px',
+  color: 'white'
+}}>
+  <h1 style={{ fontSize: '48px', fontWeight: '700', marginBottom: '16px', color: 'white' }}>
+    Appointment Management Built for Mental Health Professionals
+  </h1>
+  <p style={{ fontSize: '18px', marginBottom: '24px', color: 'white', opacity: 0.95 }}>
+    Replace WhatsApp coordination, Excel spreadsheets, and manual reminders with a professional system that works for both you and your patients.
+  </p>
+  <div style={{ display: 'flex', gap: '12px' }}>
+    <a href="/quickstart" style={{
+      background: 'white',
+      color: '#4c44e4',
+      padding: '12px 24px',
+      borderRadius: '8px',
+      fontWeight: '600',
+      textDecoration: 'none'
+    }}>
+      Get Started
+    </a>
+    <a href="/api/introduction" style={{
+      background: 'rgba(255,255,255,0.2)',
+      color: 'white',
+      padding: '12px 24px',
+      borderRadius: '8px',
+      fontWeight: '600',
+      textDecoration: 'none',
+      border: '1px solid white'
+    }}>
+      View API Docs
+    </a>
+  </div>
+</div>
 
-Get your documentation site up and running in minutes.
+## Why Zenda?
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+Coordinating appointments without a dedicated tool creates unnecessary friction:
+- Reservations that never get confirmed, leaving gaps in your schedule
+- Patients who forget their sessions
+- Your valuable time lost in back-and-forth messaging
+- No organized record of patient history
 
-## Make it yours
+Zenda solves all of this in one centralized platform.
 
-Design a docs site that looks great and empowers your users.
+## Key Features
 
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Real-Time Scheduling" icon="calendar-check">
+    Patients see your actual availability and book sessions instantly from any device
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Payment Integration" icon="credit-card">
+    Require deposits through Mercado Pago to confirm appointments automatically
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Professional Dashboard" icon="chart-line">
+    Manage your entire practice from one centralized calendar and reservation panel
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="Patient Management" icon="users">
+    Track patient history, view past sessions, and manage all reservations efficiently
   </Card>
-</Columns>
+  <Card title="Flexible Session Types" icon="video">
+    Configure in-person, virtual, or hybrid sessions based on your practice
+  </Card>
+  <Card title="Role-Based Access" icon="shield-check">
+    Secure authentication ensures professionals and patients only see what's relevant to them
+  </Card>
+</CardGroup>
 
-## Create beautiful pages
+## For Mental Health Professionals
 
-Everything you need to create world-class documentation.
+<CardGroup cols={2}>
+  <Card title="Configure Your Schedule" icon="clock" href="/professionals/schedule-management">
+    Set your working hours, session duration, and available days
+  </Card>
+  <Card title="Manage Your Dashboard" icon="table-columns" href="/professionals/dashboard">
+    View all reservations, patient information, and upcoming sessions
+  </Card>
+  <Card title="Set Payment Requirements" icon="dollar-sign" href="/professionals/payment-settings">
+    Configure deposit amounts and payment rules for your practice
+  </Card>
+  <Card title="Track Patient History" icon="folder-open" href="/professionals/patient-management">
+    Access complete reservation history for each patient
+  </Card>
+</CardGroup>
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
-  </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
-  </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+## For Patients
 
-## Need inspiration?
+<CardGroup cols={2}>
+  <Card title="Book Appointments" icon="calendar-plus" href="/patients/booking-appointments">
+    View availability and reserve sessions in minutes
+  </Card>
+  <Card title="Manage Reservations" icon="list-check" href="/patients/managing-reservations">
+    Track all your upcoming and past sessions
+  </Card>
+  <Card title="Secure Payments" icon="lock" href="/patients/payments">
+    Confirm reservations with safe, integrated payments
+  </Card>
+</CardGroup>
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+## Integrations
+
+<CardGroup cols={2}>
+  <Card title="Mercado Pago" icon="money-bill-wave" href="/integrations/mercado-pago">
+    Integrated payment processing for appointment deposits
+  </Card>
+  <Card title="Supabase" icon="database" href="/integrations/supabase">
+    Secure cloud storage with automatic backups
+  </Card>
+</CardGroup>
+
+## Developer Resources
+
+<CardGroup cols={2}>
+  <Card title="API Reference" icon="code" href="/api/introduction">
+    Comprehensive REST API documentation
+  </Card>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn how to authenticate API requests
+  </Card>
+  <Card title="Reservations API" icon="calendar" href="/api/reservations/overview">
+    Manage appointments programmatically
+  </Card>
+  <Card title="Professional Settings API" icon="gear" href="/api/professional-settings/overview">
+    Configure professional preferences via API
+  </Card>
+</CardGroup>
+
+## Get Started
+
+<Steps>
+  <Step title="Create your account">
+    Sign up as a mental health professional to access your dashboard
+  </Step>
+  <Step title="Configure your schedule">
+    Set your working hours, session types, and payment preferences
+  </Step>
+  <Step title="Share with patients">
+    Provide patients with your booking link to start accepting appointments
+  </Step>
+</Steps>
+
+<Note>
+Zenda is designed to be responsive and accessible from any device - desktop, tablet, or mobile.
+</Note>

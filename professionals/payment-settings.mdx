@@ -1,0 +1,359 @@
+---
+title: Payment Settings
+description: Configure payment integration and deposit requirements for sessions
+---
+
+Zenda integrates with Mercado Pago to handle session payments and deposits. As a professional, you can configure whether deposits are required and set deposit amounts for your sessions.
+
+## Payment Configuration Overview
+
+Payment settings are part of your professional settings and control:
+
+- Whether deposits are required for bookings
+- The deposit amount patients must pay
+- Payment confirmation workflow
+
+## Payment Fields in Professional Settings
+
+The payment configuration is stored in your `ProfessionalSettings`:
+
+```typescript
+interface ProfessionalSettings {
+  // ... other settings
+  
+  requires_deposit: boolean;      // Whether deposit is mandatory
+  deposit_amount?: number | null; // Deposit amount in currency units
+  
+  // ... other settings
+}
+```
+
+Reference: `/workspace/source/schemas/professional_settings.ts:16-17`
+
+## Configuring Deposit Requirements
+
+### Enabling Deposits
+
+Control whether patients must pay a deposit when booking:
+
+<Tabs>
+  <Tab title="Deposits Required">
+    Set `requires_deposit: true` to mandate upfront payment
+    
+    When enabled:
+    - Patients must pay before confirming a reservation
+    - You must specify a `deposit_amount`
+    - Bookings are marked as pending until payment is confirmed
+  </Tab>
+  <Tab title="No Deposits">
+    Set `requires_deposit: false` for free booking
+    
+    When disabled:
+    - Patients can book without payment
+    - `deposit_amount` can be null
+    - Reservations are confirmed immediately
+  </Tab>
+</Tabs>
+
+The validation rules:
+
+```typescript
+@IsBoolean()
+requires_deposit: boolean;
+
+@IsOptional()
+@IsInt()
+@Min(0)
+deposit_amount?: number | null;
+```
+
+Reference: `/workspace/source/server/src/modules/professional-settings/dto/update-professional-setting.dto.ts:41-47`
+
+### Setting Deposit Amount
+
+When deposits are enabled, specify the amount:
+
+<Steps>
+  <Step title="Enable Deposits">
+    Toggle `requires_deposit` to `true` in your settings
+  </Step>
+  <Step title="Set Amount">
+    Enter the deposit amount in the currency field (minimum: 0)
+  </Step>
+  <Step title="Validate">
+    Ensure amount is at least 1 if deposits are required
+  </Step>
+  <Step title="Save">
+    Confirm your settings to apply the changes
+  </Step>
+</Steps>
+
+<Warning>
+If you enable deposits without setting a valid amount (at least 1), the save button will be disabled. You must provide a deposit amount greater than 0.
+</Warning>
+
+## Settings Interface Implementation
+
+The deposit configuration is managed in the settings UI:
+
+```typescript
+const handleRequiresDeposit = (value: boolean) => {
+  setIsSaved(false);
+  setLocalSettings({ ...localSettings, requires_deposit: value });
+};
+
+const handleDepositAmount = (amount: number) => {
+  setIsSaved(false);
+  setLocalSettings({ ...localSettings, deposit_amount: amount });
+};
+```
+
+Reference: `/workspace/source/app/core/admin/components/professional-settings/ProfessionalSettings.tsx:68-75`
+
+### Validation Logic
+
+The form validates deposit settings before allowing save:
+
+```typescript
+const isDepositInvalid = requires_deposit && (!deposit_amount || deposit_amount < 1);
+
+const isConfirmDisabled = isDepositInvalid || isAddressEmpty || isSaved || disabledConfirmSection({
+  originalSettings: currentProfessionalSettings,
+  newSettings: localSettings
+});
+```
+
+Reference: `/workspace/source/app/core/admin/components/professional-settings/ProfessionalSettings.tsx:101-106`
+
+<Info>
+The save button is automatically disabled if you have `requires_deposit: true` but `deposit_amount` is not set or is less than 1.
+</Info>
+
+## Payment Integration
+
+### Mercado Pago Connection
+
+Zenda uses Mercado Pago as the payment processor. When a patient books a session that requires a deposit:
+
+1. The reservation is created with status `PENDING`
+2. Patient is redirected to Mercado Pago for payment
+3. After successful payment, reservation status updates to `CONFIRMED`
+4. You receive notification of the confirmed booking
+
+### Reservation with Payment
+
+When creating a reservation with payment, the system uses:
+
+```typescript
+export class CreateReservationDto {
+  @IsObject()
+  @ValidateNested()
+  @Type(() => Object)
+  reservation: Reservation;
+
+  @IsNumber()
+  deposit_amount: number;  // The deposit amount from your settings
+}
+```
+
+Reference: `/workspace/source/server/src/modules/reservations/dto/create-reservation.dto.ts:5-13`
+
+<Note>
+The `deposit_amount` from your professional settings is automatically included in the reservation creation payload when deposits are required.
+</Note>
+
+## Payment Workflow
+
+### For Reservations with Deposits
+
+<Steps>
+  <Step title="Patient Selects Time">
+    Patient chooses an available appointment slot
+  </Step>
+  <Step title="Deposit Required">
+    System checks your `requires_deposit` setting
+  </Step>
+  <Step title="Payment Screen">
+    Patient is shown the deposit amount and payment options
+  </Step>
+  <Step title="Mercado Pago">
+    Patient completes payment through Mercado Pago
+  </Step>
+  <Step title="Confirmation">
+    Upon successful payment, reservation status updates to CONFIRMED
+  </Step>
+</Steps>
+
+### For Reservations without Deposits
+
+If `requires_deposit` is `false`:
+
+1. Patient selects time slot
+2. Reservation is immediately confirmed
+3. No payment processing occurs
+4. Appointment appears in your calendar
+
+## Managing Payment Status
+
+View payment status for reservations:
+
+- **Payment confirmed** - Deposit was successfully received
+- **Payment pending** - Awaiting payment completion
+- **No payment required** - Deposit not configured
+
+Payment status appears in:
+- Dashboard appointment cards
+- Reservation history table
+- Individual reservation details
+
+### Payment Status in Reservations
+
+The reservation history displays payment status:
+
+```tsx
+<TableHead className="col-estado">Estado de pago</TableHead>
+```
+
+Reference: `/workspace/source/app/core/admin/components/reservations/HistoryReservations.tsx:68`
+
+## Duration and Deposit Section
+
+The settings UI combines session duration and payment configuration in one section:
+
+```typescript
+<DurationSection
+  sessionDurationMinutes={session_duration_minutes}
+  onChange={handleDuration}
+  requiresDeposit={requires_deposit}
+  depositAmount={deposit_amount || 0}
+  onChangeRequiresDeposit={handleRequiresDeposit}
+  onChangeDepositAmount={handleDepositAmount}
+/>
+```
+
+Reference: `/workspace/source/app/core/admin/components/professional-settings/ProfessionalSettings.tsx:118-125`
+
+This section allows you to configure:
+- Session duration (15-180 minutes)
+- Deposit requirement toggle
+- Deposit amount input
+
+## Payment Alerts
+
+The dashboard includes a payment alerts section:
+
+```tsx
+<div className="small-card-admin">
+  <h3 className="font-extrabold">Alertas (pagos pendientes)</h3>
+  <p className="mt-2 text-[.8rem] opacity-80">No hay pagos pendientes</p>
+</div>
+```
+
+Reference: `/workspace/source/app/core/admin/components/home/DashboardAdmin.tsx:106-109`
+
+This section notifies you of:
+- Pending payments awaiting confirmation
+- Failed payment attempts
+- Payment-related issues requiring attention
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Set Appropriate Deposits" icon="dollar-sign">
+    Choose deposit amounts that balance commitment and accessibility
+  </Card>
+  <Card title="Clear Communication" icon="message-circle">
+    Ensure patients understand deposit requirements before booking
+  </Card>
+  <Card title="Monitor Pending Payments" icon="clock">
+    Regularly check dashboard alerts for payment issues
+  </Card>
+  <Card title="Update Settings as Needed" icon="settings">
+    Adjust deposit requirements based on your practice needs
+  </Card>
+</CardGroup>
+
+## Common Scenarios
+
+### Scenario 1: Requiring Deposits
+
+```json
+{
+  "requires_deposit": true,
+  "deposit_amount": 2000
+}
+```
+
+Patients must pay 2000 currency units as deposit before confirming.
+
+### Scenario 2: No Deposits
+
+```json
+{
+  "requires_deposit": false,
+  "deposit_amount": null
+}
+```
+
+Patients can book freely without payment. Useful for established patients or specific practice models.
+
+### Scenario 3: Partial Deposits
+
+```json
+{
+  "requires_deposit": true,
+  "deposit_amount": 500
+}
+```
+
+Patients pay a smaller deposit (500) to confirm, with remaining balance due at session time.
+
+<Info>
+The deposit amount should be in the smallest currency unit (e.g., cents for USD, centavos for ARS).
+</Info>
+
+## Validation Errors
+
+Common validation errors:
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| Deposit invalid | `requires_deposit: true` but `deposit_amount < 1` | Set deposit amount to at least 1 |
+| Settings not saved | Validation failed | Check all required fields are valid |
+| Amount too low | `deposit_amount: 0` with deposits enabled | Increase deposit to minimum of 1 |
+
+## State Management
+
+Payment settings are managed through the `ProfessionalSettingsStore`:
+
+```typescript
+updateProfessionalSettings: async (newSettings: ProfessionalSettings) => {
+  const localUrl = serverConfig.professionalSettings.patch({ id: newSettings.user_id });
+  try {
+    const { data } = await axiosClient.patch(localUrl, newSettings);
+    set({ professional_settings: data.data });
+    return data.data;
+  } catch (error) {
+    throw error;
+  }
+}
+```
+
+Reference: `/workspace/source/store/ProfessionalSettingsStore.ts:31-40`
+
+Changes to payment settings are:
+1. Validated client-side
+2. Sent to server via PATCH request
+3. Persisted to database
+4. Updated in local state and localStorage
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Schedule Management" icon="calendar" href="/professionals/schedule-management">
+    Configure your working hours and availability
+  </Card>
+  <Card title="View Reservations" icon="list" href="/professionals/reservations">
+    See payment status for all appointments
+  </Card>
+</CardGroup>

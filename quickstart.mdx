@@ -1,80 +1,224 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: "Quick Start Guide"
+description: "Get started with Zenda in minutes"
 ---
 
-## Get started in three steps
+## Overview
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide will walk you through setting up Zenda and creating your first appointment booking. Whether you're a professional setting up your practice or a patient booking a session, this guide has you covered.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+Zenda works on any device—desktop, tablet, or mobile—directly in your web browser with no installation required.
 </Note>
+
+## For Mental Health Professionals
+
+<Steps>
+  <Step title="Create Your Professional Account">
+    Sign up for a Zenda account using your email address. You'll use Supabase authentication, which provides secure, reliable access to your dashboard.
+
+    The application uses token-based authentication. After signing in, your session token is stored securely and used for all API requests.
+  </Step>
+
+  <Step title="Configure Your Schedule">
+    Set up your practice parameters:
+
+    **Session Duration**
+    - Choose between 15 and 180 minutes per session
+    - Common values: 30, 45, or 60 minutes
+    - This determines available time slots
+
+    **Working Hours**
+    - Define your start and end times (e.g., 9:00 AM to 6:00 PM)
+    - Set which days of the week you work
+    - Block specific dates for vacation or time off
+
+    **Session Types**
+    - **Virtual**: Online sessions via video call
+    - **Presencial**: In-person at your office (requires office address)
+    - **Both**: Offer both modalities for patient flexibility
+
+    **Reservation Window**
+    - Set how far in advance patients can book (1-365 days)
+    - Prevents last-minute bookings if desired
+
+    ```typescript
+    // Professional settings structure
+    interface ProfessionalSettings {
+      session_duration: number;        // Minutes per session
+      working_days: string[];          // ["monday", "tuesday", ...]
+      start_hour: string;              // "09:00"
+      end_hour: string;                // "18:00"
+      modality: "Virtual" | "Presencial" | "BOTH";
+      office_address?: string;         // Required if Presencial or BOTH
+      requires_deposit: boolean;       // Require payment to confirm?
+      deposit_amount?: number;         // Deposit amount if required
+      reservation_window_days: number; // 1-365
+    }
+    ```
+  </Step>
+
+  <Step title="Configure Payment Settings (Optional)">
+    Decide whether to require deposits for appointment confirmation:
+
+    **Option 1: No Deposit Required**
+    - Set `requires_deposit` to `false`
+    - Patients can book immediately without payment
+    - Good for established patients or practices without payment infrastructure
+
+    **Option 2: Require Deposit**
+    - Set `requires_deposit` to `true`
+    - Set `deposit_amount` (must be ≥ 1)
+    - Patients must pay through Mercado Pago to confirm
+    - Reduces no-shows and ensures commitment
+
+    See [Payment Settings](/professionals/payment-settings) for detailed configuration.
+  </Step>
+
+  <Step title="Share Your Booking Link">
+    Once configured, share your booking page URL with patients. They'll be able to:
+    - View your real-time availability
+    - Select their preferred time slot
+    - Choose session type (if you offer both virtual and in-person)
+    - Complete payment if required
+    - Receive instant confirmation
+  </Step>
+
+  <Step title="Manage Your Dashboard">
+    Access your professional dashboard to:
+    - View all upcoming appointments in calendar or list view
+    - See patient information and history
+    - Create manual time blocks for administrative tasks
+    - Cancel or reschedule appointments
+    - Track payment status
+
+    Learn more in [Professional Dashboard](/professionals/dashboard).
+  </Step>
+</Steps>
+
+## For Patients
+
+<Steps>
+  <Step title="Access the Booking Page">
+    Your mental health professional will provide you with a booking link. Open it in any web browser on your device.
+  </Step>
+
+  <Step title="Create Your Account">
+    Sign up with your email address to create a patient account. This lets you:
+    - Book appointments
+    - View your reservation history
+    - Manage upcoming sessions
+  </Step>
+
+  <Step title="Select Your Appointment">
+    Choose your preferred appointment details:
+
+    **Date**: Pick from available dates based on the professional's schedule
+
+    **Time Slot**: Available slots are generated based on:
+    - Professional's working hours
+    - Session duration
+    - Existing reservations
+    - 10-minute buffer between sessions
+
+    **Session Type**: If the professional offers both:
+    - Virtual (online session)
+    - Presencial (in-person at office)
+  </Step>
+
+  <Step title="Complete Payment (if required)">
+    If the professional requires a deposit:
+
+    1. Review the deposit amount
+    2. Click to proceed to Mercado Pago
+    3. Complete payment securely
+    4. You'll be redirected back with confirmation
+
+    The reservation is automatically created after successful payment.
+
+    If no deposit is required, your appointment is confirmed immediately.
+  </Step>
+
+  <Step title="Receive Confirmation">
+    After booking:
+    - Your appointment appears in your reservations list
+    - You can view details anytime by logging in
+    - Check appointment status, date, time, and type
+  </Step>
+</Steps>
+
+## Common Scenarios
+
+<Accordion title="How do I cancel an appointment?">
+  **As a Professional:**
+  Go to your dashboard, find the reservation, and click to cancel or delete it.
+
+  **As a Patient:**
+  Log in to your account, view your reservations, and select the appointment to cancel. Contact your professional directly if you need assistance.
+</Accordion>
+
+<Accordion title="What if I don't see any available time slots?">
+  This means the professional's schedule is fully booked for the displayed dates. Try:
+  - Selecting a different date range
+  - Checking later in the week or month
+  - Contacting the professional directly for urgent needs
+</Accordion>
+
+<Accordion title="How do payment confirmations work?">
+  When payment is required:
+  1. You create a payment preference
+  2. Complete payment through Mercado Pago
+  3. Mercado Pago sends a webhook notification to Zenda
+  4. Zenda automatically creates your reservation
+  5. Your appointment is confirmed
+
+  The entire process is automated and typically completes in seconds.
+</Accordion>
+
+<Accordion title="Can I block time on my calendar without a patient?">
+  **Yes!** As a professional, you can create manual blocks for:
+  - Lunch breaks
+  - Administrative time
+  - Personal appointments
+  - Vacation days
+
+  Manual blocks prevent patients from booking those time slots.
+</Accordion>
+
+## Technical Details
+
+For developers integrating with Zenda:
+
+```typescript
+// API Base URL
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_PREFIX = "/api";
+
+// All endpoints use the /api prefix
+const endpoints = {
+  reservations: `${API_BASE}${API_PREFIX}/reservations`,
+  availability: `${API_BASE}${API_PREFIX}/reservations/availability`,
+  professionalSettings: `${API_BASE}${API_PREFIX}/professional-settings`,
+  profiles: `${API_BASE}${API_PREFIX}/profiles`,
+  payments: `${API_BASE}${API_PREFIX}/payments`,
+};
+```
+
+See the [API Reference](/api/introduction) for complete endpoint documentation.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Professional Dashboard" icon="chart-line" href="/professionals/dashboard">
+    Learn how to manage your practice dashboard
+  </Card>
+  <Card title="Booking Appointments" icon="calendar-plus" href="/patients/booking-appointments">
+    Detailed patient booking guide
+  </Card>
+  <Card title="Payment Integration" icon="credit-card" href="/integrations/mercado-pago">
+    Set up Mercado Pago for deposits
+  </Card>
+  <Card title="Authentication" icon="shield" href="/authentication">
+    Understand how Zenda authentication works
+  </Card>
+</CardGroup>

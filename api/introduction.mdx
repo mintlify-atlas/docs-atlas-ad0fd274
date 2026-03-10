@@ -1,0 +1,70 @@
+---
+title: 'API Introduction'
+description: 'Welcome to the Zenda API documentation'
+icon: 'rocket'
+---
+
+## Overview
+
+The Zenda API is a RESTful API that allows you to manage reservations, professional settings, user profiles, and payments for your appointment booking system.
+
+## Base URL
+
+All API endpoints are prefixed with `/api`:
+
+```
+https://your-domain.com/api
+```
+
+## API Structure
+
+The Zenda API is organized around the following main resources:
+
+- **Reservations** - Create, retrieve, and manage appointment reservations
+- **Professional Settings** - Configure professional preferences and availability
+- **Profiles** - Manage user profiles
+- **Payments** - Handle payment processing and preferences
+
+## Response Format
+
+All API responses follow a consistent structure:
+
+```json
+{
+  "status": 200,
+  "data": {},
+  "message": "Success message"
+}
+```
+
+## Error Handling
+
+The API uses standard HTTP status codes:
+
+- `200` - Success
+- `201` - Created
+- `400` - Bad Request
+- `401` - Unauthorized
+- `403` - Forbidden
+- `404` - Not Found
+
+Error responses include details about what went wrong:
+
+```json
+{
+  "statusCode": 400,
+  "message": "Error description",
+  "error": "Bad Request"
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Authentication" icon="key" href="/api/authentication">
+    Learn how to authenticate your API requests
+  </Card>
+  <Card title="Reservations" icon="calendar" href="/api/reservations/overview">
+    Start managing reservations
+  </Card>
+</CardGroup>

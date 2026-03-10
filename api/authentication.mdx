@@ -1,0 +1,120 @@
+---
+title: 'Authentication'
+description: 'Learn how to authenticate your API requests'
+icon: 'key'
+---
+
+## Overview
+
+The Zenda API uses Bearer token authentication. All API endpoints require a valid authentication token to be included in the request headers.
+
+## Authentication Method
+
+Authentication is handled via the `Authorization` header using a Bearer token:
+
+```bash
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+## How It Works
+
+The API uses Supabase for authentication. When you make a request:
+
+1. The API extracts the token from the `Authorization` header
+2. Validates the token with Supabase
+3. Verifies the user exists and the token is not expired
+4. Attaches user information to the request
+
+See the implementation in `server/src/common/guards/auth.guard.ts:10-28`.
+
+## Making Authenticated Requests
+
+<CodeGroup>
+
+```bash cURL
+curl -X GET https://your-domain.com/api/reservations \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
+  -H "Content-Type: application/json"
+```
+
+```typescript TypeScript
+const response = await fetch('https://your-domain.com/api/reservations', {
+  method: 'GET',
+  headers: {
+    'Authorization': `Bearer ${accessToken}`,
+    'Content-Type': 'application/json'
+  }
+});
+
+const data = await response.json();
+```
+
+```javascript JavaScript
+fetch('https://your-domain.com/api/reservations', {
+  method: 'GET',
+  headers: {
+    'Authorization': 'Bearer ' + accessToken,
+    'Content-Type': 'application/json'
+  }
+})
+  .then(response => response.json())
+  .then(data => console.log(data));
+```
+
+</CodeGroup>
+
+## Error Responses
+
+### Missing Token
+
+If no token is provided:
+
+```json
+{
+  "statusCode": 401,
+  "message": "Token no proporcionado",
+  "error": "Unauthorized"
+}
+```
+
+### Invalid or Expired Token
+
+If the token is invalid or expired:
+
+```json
+{
+  "statusCode": 401,
+  "message": "Token inválido o expirado",
+  "error": "Unauthorized"
+}
+```
+
+## Getting an Access Token
+
+To obtain an access token, you need to authenticate with Supabase. The token should be obtained through Supabase's authentication flow:
+
+1. Sign in or sign up through Supabase Auth
+2. Retrieve the session access token
+3. Use the token in your API requests
+
+<Info>
+  Access tokens expire after a certain period. Make sure to refresh your token when needed using Supabase's token refresh mechanism.
+</Info>
+
+## Security Best Practices
+
+- Never expose your access tokens in client-side code or public repositories
+- Always use HTTPS in production
+- Implement token refresh logic to handle expired tokens
+- Store tokens securely (e.g., in httpOnly cookies or secure storage)
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Reservations API" icon="calendar" href="/api/reservations/overview">
+    Start managing reservations
+  </Card>
+  <Card title="Profiles API" icon="user" href="/api/profiles/overview">
+    Manage user profiles
+  </Card>
+</CardGroup>

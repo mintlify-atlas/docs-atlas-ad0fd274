@@ -1,0 +1,254 @@
+---
+title: Booking Appointments
+description: Learn how patients can view professional availability and book appointments in Zenda
+---
+
+## Overview
+
+Patients can book appointments by selecting a date, time slot, and session type (in-person or virtual). The booking flow guides patients through availability checking, time selection, and confirmation.
+
+## Booking Flow
+
+<Steps>
+  <Step title="Access the Booking Page">
+    Navigate to `/dashboard/reserve` to start the booking process. The page displays:
+    - Calendar for date selection
+    - Available time slots
+    - Session modality options
+
+    ```typescript
+    // Route: app/dashboard/reserve/page.tsx
+    export default function Reserve() {
+      return (
+        <LayoutDashboardUser
+          titleSection="Seleccioná fecha y horario"
+          subtitleSection="Elegí el día, horario y modalidad para tu sesión"
+          route="reserve"
+          routeBack="/dashboard"
+        >
+          <ReserveUser />
+        </LayoutDashboardUser>
+      )
+    }
+    ```
+  </Step>
+
+  <Step title="Select Date and Time">
+    Choose your preferred date from the calendar. The system automatically fetches available time slots for the selected date.
+
+    The availability check happens with a 300ms debounce to optimize performance:
+
+    ```typescript
+    // From: app/core/dashboard/components/reserve/ReserveUser.tsx
+    const handleDate = (date: Date | undefined) => {
+      setSelectedDate(date)
+      setSelectedTime("")
+      setSlots([])
+
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+
+      debounceRef.current = setTimeout(async () => {
+        if (!date) return
+
+        const response = await getAvailabilityesReservations({
+          date,
+          professional_id: currentProfessionalSettings?.user_id || "",
+        })
+
+        setSlots(response.occupiedSlots)
+      }, 300)
+    }
+    ```
+  </Step>
+
+  <Step title="Choose Session Modality">
+    Select the session type based on professional settings:
+    - **Virtual**: Online video session
+    - **Presencial**: In-person at the office
+    - **BOTH**: Patient can choose either option
+
+    ```typescript
+    const handleSessionModalitie = ({
+      modalitie,
+    }: {
+      modalitie: SessionModalityToUser
+    }) => {
+      setLocalReservation({
+        ...localReservation,
+        session_modality: modalitie,
+      })
+    }
+    ```
+
+    <Note>
+      If the professional only offers one modality, it will be automatically selected.
+    </Note>
+  </Step>
+
+  <Step title="Confirm and Proceed">
+    After selecting date, time, and modality, click "Continue". The system:
+    - Calculates the end time based on session duration
+    - Creates a reservation object
+    - Routes you to payment (if deposit required) or confirmation page
+
+    ```typescript
+    const handleContinue = () => {
+      if (!selectedDate || !selectedTime) return
+
+      const endTime = getEndTimeReservation({
+        start_time: selectedTime,
+        session_duration_minutes:
+          currentProfessionalSettings?.session_duration_minutes || 45,
+      })
+
+      const updatedReservation: Reservation = {
+        ...localReservation,
+        start_time: selectedTime,
+        end_time: endTime,
+        client_id: currentSession?.user.id || "",
+        professional_id: currentProfessionalSettings?.user_id || "",
+        session_modality: effectiveSessionModality,
+      }
+
+      setCurrentReservation(updatedReservation)
+
+      if (currentProfessionalSettings?.requires_deposit) {
+        router.push("/dashboard/reserve/payment")
+      } else {
+        router.push("/dashboard/reserve/confirm")
+      }
+    }
+    ```
+  </Step>
+</Steps>
+
+## Checking Availability
+
+### API Endpoint
+
+The system checks professional availability using the `/reservations/availability` endpoint:
+
+```http
+GET /reservations/availability?date=2026-03-15&professional_id=prof456
+```
+
+**Query Parameters:**
+- `date` (string): Date in format YYYY-MM-DD
+- `professional_id` (string): ID of the professional
+
+**Response:**
+```json
+{
+  "date": "2026-03-15",
+  "timezone": "",
+  "occupiedSlots": [
+    "2026-03-15T09:00:00",
+    "2026-03-15T10:00:00",
+    "2026-03-15T14:00:00"
+  ]
+}
+```
+
+### Implementation
+
+The backend filters reservations for the selected date:
+
+```typescript
+// From: server/src/modules/reservations/reservations.service.ts
+async getAvailability(date: string, professionalId: string) {
+  const day = date.split(" ")[0];
+  const nextDay = new Date(day);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const nextDayStr = nextDay.toISOString().split("T")[0];
+
+  const response = await this.supabaseService
+    .getClient()
+    .from("reservations")
+    .select('*')
+    .eq('professional_id', professionalId)
+    .gte('start_time', `${day}T00:00:00`)
+    .lt('start_time', `${nextDayStr}T00:00:00`);
+
+  const finalSlots: string[] = []
+
+  response.data?.forEach((subDate: Reservation) => {
+    finalSlots.push(subDate.start_time);
+  })
+
+  return {
+    date: day,
+    timezone: "",
+    occupiedSlots: finalSlots,
+  };
+}
+```
+
+## Reservation Data Structure
+
+When booking an appointment, the following reservation object is created:
+
+```typescript
+export interface Reservation {
+  id: string;
+  client_id: string;        // Patient's user ID
+  professional_id: string;  // Professional's user ID
+  start_time: string;       // ISO timestamp
+  end_time: string;         // ISO timestamp
+  status: ReservationStatus; // "PENDING" | "CONFIRMED" | "CANCELLED"
+  session_modality: SessionModalityToUser; // "Virtual" | "Presencial" | ""
+  created_at: string;       // ISO timestamp
+}
+```
+
+## Client Configuration
+
+The frontend uses a centralized server configuration for API calls:
+
+```typescript
+// From: lib/serverConfig.ts
+export const serverConfig = {
+  reservations: {
+    common: `${serverUrl}/reservations`,
+    getAvailability: ({ date, professional_id }: {
+      date: string | undefined;
+      professional_id: string;
+    }) => {
+      return `${serverUrl}/reservations/availability?date=${date}&professional_id=${professional_id}`;
+    },
+    getPayment: `${serverUrl}/reservations/payment`,
+    create: `${serverUrl}/reservations/create-without-payment`,
+  }
+}
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Date Selection" icon="calendar">
+    Always check availability before allowing time slot selection to prevent double bookings
+  </Card>
+  <Card title="Session Duration" icon="clock">
+    End time is automatically calculated based on professional's session_duration_minutes setting
+  </Card>
+  <Card title="Admin Blocks" icon="ban">
+    The system filters out time slots that professionals have manually blocked
+  </Card>
+  <Card title="Validation" icon="check">
+    The "Continue" button only activates when date, time, and modality are selected
+  </Card>
+</CardGroup>
+
+<Warning>
+  Reservations are not saved to the database until payment is confirmed (if required) or the final confirmation step is completed.
+</Warning>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Make Payment" icon="credit-card" href="/patients/payments">
+    Learn about the payment process for appointments requiring a deposit
+  </Card>
+  <Card title="Manage Reservations" icon="calendar-check" href="/patients/managing-reservations">
+    View and manage your existing appointments
+  </Card>
+</CardGroup>

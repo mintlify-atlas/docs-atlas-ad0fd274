@@ -1,0 +1,315 @@
+---
+title: Patient Management
+description: View and manage patient information and reservation history
+---
+
+Zenda provides comprehensive tools for managing your patient roster, viewing patient details, and accessing their complete reservation history.
+
+## Accessing Patient Management
+
+Navigate to the patient management section from your dashboard's quick access links or visit `/admin/dashboard/users` directly.
+
+## Patient List Interface
+
+The patient management interface displays all clients who have booked sessions with you.
+
+### List Features
+
+<CardGroup cols={2}>
+  <Card title="Search Functionality" icon="magnifying-glass">
+    Quickly find patients by name or email
+  </Card>
+  <Card title="Pagination" icon="list">
+    Navigate through your patient list with paginated results
+  </Card>
+  <Card title="Patient Cards" icon="id-card">
+    View key patient information at a glance
+  </Card>
+  <Card title="Session History" icon="clock">
+    Access complete appointment history for each patient
+  </Card>
+</CardGroup>
+
+## Patient List Component
+
+The list displays patients with the following information:
+
+```typescript
+interface ListUsersProps {
+  users: Profile[];              // Array of patient profiles
+  totalUsers: number;            // Total count for pagination
+  handleSearch: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  inputValue: string;            // Search input value
+  handleSelect: ({ user }: { user: Profile }) => void;
+  userSelected: Profile | undefined;
+  currentPage: number;
+  totalPages: number;
+  onPageChange: (page: number) => void;
+}
+```
+
+Reference: `/workspace/source/app/core/admin/components/users/ListUsers.tsx:14-24`
+
+## Searching for Patients
+
+Use the search bar to filter patients:
+
+<Steps>
+  <Step title="Enter Search Query">
+    Type patient name or email in the search input field
+  </Step>
+  <Step title="Real-time Filtering">
+    Results update automatically as you type
+  </Step>
+  <Step title="View Results">
+    Filtered patients appear in the list below
+  </Step>
+</Steps>
+
+The search input implementation:
+
+```tsx
+<input
+  className="border w-full rounded-[10px] px-4 py-1.5 input-search-user"
+  onChange={handleSearch}
+  value={inputValue}
+  placeholder="Buscar cliente..."
+/>
+```
+
+Reference: `/workspace/source/app/core/admin/components/users/ListUsers.tsx:61-66`
+
+<Info>
+If no patients match your search query, you'll see "Sin resultados" (No results) displayed.
+</Info>
+
+## Patient Information Display
+
+Each patient card in the list shows:
+
+- **Name** - Full name of the patient
+- **Email** - Contact email address
+- **Selection state** - Visual indicator when a patient is selected
+
+The list header organizes this information:
+
+```tsx
+<div className="place-items-center flex p-5 py-3 border-y">
+  <h4 className="w-[40%] text-[.7rem] font-bold opacity-50">NOMBRE</h4>
+  <h4 className="w-[60%] text-[.7rem] font-bold opacity-50">EMAIL</h4>
+</div>
+```
+
+Reference: `/workspace/source/app/core/admin/components/users/ListUsers.tsx:68-71`
+
+## Selecting Patients
+
+Click on any patient card to select and view their detailed information:
+
+```tsx
+<li onClick={() => handleSelect({ user })} key={user.id}>
+  <CardUser 
+    user={user} 
+    isUserSelected={user.id === userSelected?.id} 
+  />
+</li>
+```
+
+Reference: `/workspace/source/app/core/admin/components/users/ListUsers.tsx:78-80`
+
+When a patient is selected:
+- Their card is visually highlighted
+- Their appointment history loads in an adjacent panel
+- You can view all past and future sessions
+
+## Patient Profile Data
+
+Patient information is based on the `Profile` schema:
+
+```typescript
+interface Profile {
+  id: UUID;              // Unique patient identifier
+  email: string;         // Patient email
+  full_name?: string;    // Patient full name
+  // Additional profile fields...
+}
+```
+
+## Viewing Session History
+
+After selecting a patient, view their complete appointment history:
+
+### History Display
+
+The session history shows:
+
+- **Date and time** - When each session occurred or is scheduled
+- **Session modality** - Virtual or in-person
+- **Payment status** - Whether payment was completed
+- **Session status** - Pending, confirmed, or cancelled
+
+### Reservation Data Structure
+
+Each appointment in the history uses the `Reservation` interface:
+
+```typescript
+interface Reservation {
+  id: string;
+  
+  client_id: string;        // Patient identifier
+  professional_id: string;  // Your professional ID
+  
+  start_time: string;       // ISO timestamp
+  end_time: string;         // ISO timestamp
+  
+  status: ReservationStatus;  // "PENDING" | "CONFIRMED" | "CANCELLED"
+  session_modality: SessionModalityToUser;  // "Virtual" | "Presencial" | ""
+  
+  created_at: string;       // When reservation was created
+}
+```
+
+Reference: `/workspace/source/server/src/modules/reservations/types/reservations.ts:6-19`
+
+## Pagination
+
+Navigate through your patient list with pagination controls:
+
+### Pagination Features
+
+- **Page numbers** - Click to jump to specific pages
+- **Previous/Next buttons** - Navigate sequentially
+- **Ellipsis indicators** - Show when pages are skipped
+- **Current page highlight** - Active page is visually distinguished
+
+The pagination logic:
+
+```typescript
+const getPageNumbers = (): (number | "ellipsis")[] => {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+  const pages: (number | "ellipsis")[] = [1];
+  if (currentPage > 3) pages.push("ellipsis");
+  for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+    pages.push(i);
+  }
+  if (currentPage < totalPages - 2) pages.push("ellipsis");
+  pages.push(totalPages);
+  return pages;
+};
+```
+
+Reference: `/workspace/source/app/core/admin/components/users/ListUsers.tsx:38-50`
+
+### Page Controls
+
+The pagination footer displays:
+
+```tsx
+<p className="w-[50%] text-[.8rem] opacity-60">
+  Mostrando {users.length} de {totalUsers} usuario{totalUsers !== 1 && "s"}
+</p>
+```
+
+Reference: `/workspace/source/app/core/admin/components/users/ListUsers.tsx:91-93`
+
+<Note>
+Previous/Next buttons are automatically disabled when you're at the first or last page respectively.
+</Note>
+
+## Combined Patient and Session View
+
+The `ListUsersAndSessions` component provides a split-view interface:
+
+- **Left panel** - Patient list with search and pagination
+- **Right panel** - Selected patient's session history
+
+This allows you to:
+1. Browse your patient roster
+2. Select a patient to focus on
+3. Review their complete appointment history
+4. Access individual session details
+
+## Accessing Session Details
+
+Click on any session in the history to view:
+
+- Full appointment information
+- Patient contact details
+- Payment status and amount
+- Session notes (if applicable)
+- Cancellation options
+
+<Warning>
+Cancelling a session from the patient management view will update the appointment status for both you and the patient.
+</Warning>
+
+## Data Fetching
+
+Patient reservations are fetched using the `ReservationsStore`:
+
+```typescript
+getReservations: async ({ client_id }) => {
+  const localUrl = serverConfig.reservations.fetchReservationsByUser({ client_id });
+  
+  try {
+    const response = await axiosClient(localUrl);
+    const reservations: Reservation[] = response.data.data;
+    
+    // Sort by most recent first
+    const sortReservations = [...reservations].sort(
+      (a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime()
+    );
+    
+    set({ reservations: sortReservations });
+    return sortReservations;
+  } catch (error) {
+    set({ reservations: [] });
+    throw error;
+  }
+}
+```
+
+Reference: `/workspace/source/store/ReservationsStore.ts:32-52`
+
+<Info>
+Reservations are sorted with the most recent appointments first for easier access to current patient activity.
+</Info>
+
+## Empty States
+
+When viewing patient information:
+
+- **No patients found** - "Sin resultados" is displayed when search returns no matches
+- **No reservations** - "Todavía no hay reservas creadas" is shown when a patient has no appointments
+
+Reference: `/workspace/source/app/core/admin/components/reservations/HistoryReservations.tsx:89-94`
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Regular Review" icon="calendar-check">
+    Periodically review patient histories to prepare for upcoming sessions
+  </Card>
+  <Card title="Search Efficiency" icon="search">
+    Use search functionality to quickly locate specific patients
+  </Card>
+  <Card title="Session Tracking" icon="list-check">
+    Monitor appointment status to follow up on pending confirmations
+  </Card>
+  <Card title="Contact Management" icon="envelope">
+    Keep patient email information up to date for communication
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="View Reservations" icon="calendar" href="/professionals/reservations">
+    Manage all appointments across all patients
+  </Card>
+  <Card title="Dashboard" icon="home" href="/professionals/dashboard">
+    Return to your professional dashboard
+  </Card>
+</CardGroup>

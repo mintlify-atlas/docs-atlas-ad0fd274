@@ -1,0 +1,129 @@
+---
+title: "Introduction to Zenda"
+description: "Professional appointment management for mental health practitioners"
+---
+
+## What is Zenda?
+
+Zenda is a comprehensive appointment management platform designed specifically for mental health professionals—psychologists, psychiatrists, and therapists—who want to modernize their practice management.
+
+Instead of coordinating appointments through WhatsApp, tracking them in Excel spreadsheets, and manually reminding patients, Zenda provides a professional, automated system that works seamlessly for both practitioners and their patients.
+
+## Who is it for?
+
+Zenda is built for **mental health professionals** who want to:
+- Stop managing their calendar manually
+- Focus on patient care instead of administrative tasks
+- Provide a professional booking experience for their patients
+- Maintain organized records of patient history
+- Reduce no-shows with automated confirmations
+
+## Problems Zenda Solves
+
+Coordinating appointments without a dedicated tool creates several challenges:
+
+<CardGroup cols={2}>
+  <Card title="Unconfirmed Reservations" icon="calendar-xmark">
+    Bookings that never get confirmed leave gaps in your schedule and waste your time
+  </Card>
+  <Card title="Forgotten Sessions" icon="clock">
+    Patients forget their appointments without automated reminders and confirmations
+  </Card>
+  <Card title="Administrative Overhead" icon="messages">
+    Back-and-forth messaging coordination consumes valuable professional time
+  </Card>
+  <Card title="Poor Record-Keeping" icon="folder-open">
+    No organized system to track patient history and session records
+  </Card>
+</CardGroup>
+
+Zenda eliminates all of these issues in one centralized platform.
+
+## Architecture Overview
+
+Zenda is built with modern, production-ready technologies:
+
+### Frontend
+- **Next.js 16** with React 19 for the web application
+- **TypeScript** for type-safe development
+- **Tailwind CSS** for responsive design
+- **Zustand** for state management
+- Works seamlessly on desktop, tablet, and mobile devices
+
+### Backend
+- **NestJS** with Express for the REST API
+- **Swagger/OpenAPI** documentation available at `/docs`
+- **TypeScript** throughout the backend
+- Global `/api` prefix for all endpoints
+
+### Infrastructure
+- **Supabase** for authentication and PostgreSQL database
+- **Mercado Pago** integration for secure payment processing
+- Cloud-hosted with automatic backups
+- Role-based access control for security
+
+## Key Capabilities
+
+### For Professionals
+
+<Steps>
+  <Step title="Configure Your Practice">
+    Define working hours, days, session duration, and session types (in-person, virtual, or both)
+  </Step>
+  <Step title="Set Payment Rules">
+    Optionally require deposits through Mercado Pago to confirm appointments
+  </Step>
+  <Step title="Manage Reservations">
+    View and manage all bookings from a centralized dashboard with calendar and list views
+  </Step>
+  <Step title="Track Patient History">
+    Access complete reservation history for each patient
+  </Step>
+</Steps>
+
+### For Patients
+
+<Steps>
+  <Step title="View Availability">
+    See real-time availability based on the professional's schedule
+  </Step>
+  <Step title="Book Instantly">
+    Reserve appointments in minutes from any device
+  </Step>
+  <Step title="Confirm with Payment">
+    Securely pay deposits when required to confirm reservations
+  </Step>
+  <Step title="Track Appointments">
+    View upcoming and past sessions anytime
+  </Step>
+</Steps>
+
+## Security & Reliability
+
+- **Role-based access control**: Professionals and patients only see relevant information
+- **Secure authentication**: Supabase Auth with token-based API authentication
+- **Cloud infrastructure**: Reliable hosting with automatic backups
+- **Payment security**: PCI-compliant payment processing through Mercado Pago
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Quick Start" icon="rocket" href="/quickstart">
+    Get up and running with Zenda in minutes
+  </Card>
+  <Card title="Authentication" icon="key" href="/authentication">
+    Learn how authentication works in Zenda
+  </Card>
+  <Card title="API Reference" icon="code" href="/api/introduction">
+    Explore the complete REST API documentation
+  </Card>
+  <Card title="Integrations" icon="puzzle-piece" href="/integrations/mercado-pago">
+    Set up Mercado Pago and Supabase integrations
+  </Card>
+</CardGroup>
+
+## Getting Help
+
+For questions or support, contact:
+
+**[diegomartinsupe@hotmail.com](mailto:diegomartinsupe@hotmail.com)**

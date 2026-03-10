@@ -1,0 +1,400 @@
+---
+title: Payments
+description: Learn how the deposit payment system works for appointment bookings in Zenda
+---
+
+## Overview
+
+Zenda uses a deposit-based payment system integrated with Mercado Pago. When a professional requires a deposit, patients must complete payment before their reservation is confirmed. The payment flow creates a preference, redirects to Mercado Pago, and processes webhooks to finalize the reservation.
+
+## Payment Flow
+
+<Steps>
+  <Step title="Reservation Created">
+    After selecting date, time, and modality, the patient proceeds to the payment page at `/dashboard/reserve/payment`.
+
+    The system checks if the professional requires a deposit:
+
+    ```typescript
+    // From: app/core/dashboard/components/reserve/ReserveUser.tsx
+    if (currentProfessionalSettings?.requires_deposit) {
+      router.push("/dashboard/reserve/payment")
+    } else {
+      router.push("/dashboard/reserve/confirm")
+    }
+    ```
+  </Step>
+
+  <Step title="Payment Page Display">
+    The payment page displays:
+    - Reservation summary (date, time, modality, location)
+    - Required deposit amount
+    - Payment button for Mercado Pago
+
+    ```typescript
+    // From: app/core/dashboard/components/confirm/ReservePayment.tsx
+    export const ReservePayment = () => {
+      const currentProfessionalSettings = useProfessionalSettingsStore(
+        state => state.professional_settings
+      );
+      const currentReservation = useReservationsStore(
+        state => state.currentReservation
+      );
+
+      const handlePayment = async () => {
+        if (!currentReservation) return;
+        const preferenceInitPoint = await getPayment({
+          reservation: currentReservation,
+          deposit_amount: currentProfessionalSettings?.deposit_amount || 10000
+        });
+        if (preferenceInitPoint) window.location.href = preferenceInitPoint;
+      }
+
+      return (
+        <div className="payment-container">
+          {/* Reservation summary */}
+          <h2 className="font-extrabold flex text-4xl">
+            <span className="text-xl">$</span>
+            <span>{formattedAmountDeposit({
+              deposit_amount: currentProfessionalSettings?.deposit_amount || 12000
+            })}</span>
+          </h2>
+          <ButtonPrimary handler={handlePayment}>
+            <CreditCard />
+            <span>Pagar con Mercado Pago</span>
+          </ButtonPrimary>
+        </div>
+      );
+    };
+    ```
+  </Step>
+
+  <Step title="Create Payment Preference">
+    When the patient clicks "Pay with Mercado Pago", the system creates a payment preference:
+
+    **API Request:**
+    ```http
+    POST /reservations/payment
+    Content-Type: application/json
+
+    {
+      "reservation": {
+        "id": "temp-id",
+        "client_id": "abc123",
+        "professional_id": "prof456",
+        "start_time": "2026-03-15T14:00:00",
+        "end_time": "2026-03-15T14:45:00",
+        "status": "PENDING",
+        "session_modality": "Virtual",
+        "created_at": "2026-03-10T10:30:00"
+      },
+      "deposit_amount": 10000
+    }
+    ```
+
+    **Response:**
+    ```json
+    {
+      "data": "https://www.mercadopago.com/mla/checkout/start?pref_id=123456789"
+    }
+    ```
+  </Step>
+
+  <Step title="Mercado Pago Checkout">
+    The patient is redirected to Mercado Pago to complete the payment. After payment, Mercado Pago sends a webhook notification to the server.
+  </Step>
+
+  <Step title="Webhook Processing">
+    The server receives the payment notification and creates the reservation with payment record.
+  </Step>
+
+  <Step title="Confirmation">
+    After successful payment, the patient is redirected to the confirmation page showing their confirmed appointment.
+  </Step>
+</Steps>
+
+## Creating Payment Preferences
+
+### Backend Implementation
+
+```typescript
+// From: server/src/modules/reservations/reservations.controller.ts
+@Post('/payment')
+@ApiOperation({
+  summary: 'Crear preferencia de pago',
+  description: 'Genera una preferencia de pago (ej: MercadoPago) a partir de la información de la reserva.',
+})
+async createPreference(@Body() infoReservation) {
+  return this.reservationsService.createPreference({ infoReservation });
+}
+```
+
+```typescript
+// From: server/src/modules/reservations/reservations.service.ts
+async createPreference({ infoReservation }: { infoReservation: CreateReservationDto }) {
+  const preference = await new Preference(
+    this.mercadoPago.getMercadoPago() as any
+  ).create({
+    body: {
+      items: [{
+        id: infoReservation.reservation.id,
+        title: "Pago de seña de reserva",
+        quantity: 1,
+        unit_price: infoReservation.deposit_amount
+      }],
+      metadata: {
+        info_reservation: infoReservation
+      },
+      notification_url: `${this.serverUrl}/reservations/create-with-payment`
+    }
+  })
+  return { data: preference.init_point }
+}
+```
+
+<Note>
+  The reservation details are stored in the `metadata` field so they can be retrieved when the webhook is triggered.
+</Note>
+
+## Webhook: Creating Reservation with Payment
+
+When Mercado Pago confirms the payment, it sends a webhook to `/reservations/create-with-payment`:
+
+```typescript
+// From: server/src/modules/reservations/reservations.controller.ts
+@Post('/create-with-payment')
+@ApiOperation({
+  summary: 'Crear reserva con pago',
+  description: 'Crea una reserva asociada a un pago. Extrae el ID de pago del cuerpo de la solicitud.',
+})
+async createReservationWithPayment(@Body() infoPayment) {
+  const paymentId = extractPaymentId(infoPayment);
+  if (!paymentId) return { status: 200 };
+  const data = await this.reservationsService.createReservationWithPayment(infoPayment);
+  return { data, status: 200 }
+}
+```
+
+### Payment Processing
+
+```typescript
+// From: server/src/modules/reservations/reservations.service.ts
+async createReservationWithPayment(infoPayment) {
+  const localSupabaseClient = await this.supabaseService.getClient();
+
+  // Fetch payment details from Mercado Pago
+  const payment = await new Payment(
+    this.mercadoPago.getMercadoPago()
+  ).get({ id: infoPayment.data.id });
+
+  const { info_reservation } = payment.metadata;
+  const { deposit_amount, reservation } = info_reservation;
+
+  if (payment.status === "approved") {
+    const newReservation = formattedReservation(reservation);
+
+    // Create reservation in database
+    const responseReservation = await localSupabaseClient
+      .from('reservations')
+      .insert(newReservation)
+      .select()
+      .single();
+
+    let responsePayment;
+    if (!responseReservation.error) {
+      // Create payment record
+      const newPayment = {
+        reservation_id: responseReservation.data.id,
+        amount: deposit_amount,
+        status: "PAID",
+        payment_provider: "Mercado Pago",
+        external_payment_id: payment.id,
+      }
+      responsePayment = await this.PaymentsService.create(newPayment);
+    }
+
+    return {
+      reservation: responseReservation,
+      payment: responsePayment
+    };
+  }
+
+  return payment;
+}
+```
+
+<Info>
+  The reservation is only created in the database if the payment status is "approved".
+</Info>
+
+## Payment Record
+
+After successful payment, a payment record is created:
+
+```typescript
+// From: server/src/modules/payments/dto/create-payment.dto.ts
+export class CreatePaymentDto {
+  reservation_id: string;           // Links to the reservation
+  amount: number;                   // Deposit amount paid
+  status: PaymentStatus;            // "PAID"
+  payment_provider: string;         // "Mercado Pago"
+  external_payment_id?: string | null; // Mercado Pago payment ID
+}
+```
+
+### Storing Payment
+
+```typescript
+// From: server/src/modules/payments/payments.service.ts
+@Injectable()
+export class PaymentsService {
+  constructor(private readonly supabaseService: SupabaseService) {}
+
+  async create(infoPayment) {
+    const response = await this.supabaseService
+      .getClient()
+      .from('payments')
+      .insert(infoPayment);
+  }
+}
+```
+
+## Reservations Without Payment
+
+If a professional doesn't require a deposit, reservations are created directly:
+
+```typescript
+// From: server/src/modules/reservations/reservations.controller.ts
+@Post('/create-without-payment')
+@ApiOperation({
+  summary: 'Crear reserva sin pago',
+  description: 'Crea una reserva sin requerir pago previo. Solo funciona si la configuración del profesional no requiere depósito.',
+})
+async createReservationWithoutPayment(@Body() infoPayment) {
+  const responseSettings = await this.professionalSettingsxService.get();
+  const objectReturn: any = { data: {}, status: 1 }
+
+  if (responseSettings.data) {
+    const requiresDeposit = responseSettings.data[0].requires_deposit;
+    const { client_id, professional_id } = infoPayment;
+    const isManualBlock = client_id === professional_id;
+
+    if (!requiresDeposit || isManualBlock) {
+      const data = await this.reservationsService.createReservationWithoutPayment(
+        infoPayment
+      );
+      objectReturn.data = data;
+      objectReturn.status = 200;
+    }
+  }
+  return objectReturn;
+}
+```
+
+```typescript
+// From: server/src/modules/reservations/reservations.service.ts
+async createReservationWithoutPayment(infoPayment) {
+  const newReservation = formattedReservation(infoPayment);
+  const responseReservation = await this.supabaseService
+    .getClient()
+    .from('reservations')
+    .insert(newReservation)
+    .select()
+    .single();
+  return responseReservation;
+}
+```
+
+<Note>
+  Manual blocks created by professionals (where `client_id === professional_id`) bypass the deposit requirement.
+</Note>
+
+## Payment Status
+
+The payment page displays the reservation status:
+
+```typescript
+<div className="status-pay-container">
+  <h3 className="flex place-items-center gap-x-2">
+    <CircleAlert strokeWidth={2} size={20} />
+    <span>Estado del turno: </span>
+    <span className="font-bold">Pendiente de pago</span>
+  </h3>
+  <p>El turno se confirmará una vez acreditado el pago.</p>
+</div>
+```
+
+## Deposit Amount Formatting
+
+The system formats currency amounts for display:
+
+```typescript
+// Display formatted deposit amount
+<span className="font-bold">
+  ${formattedAmountDeposit({
+    deposit_amount: currentProfessionalSettings?.deposit_amount || 12000
+  })}
+</span>
+```
+
+## Security & Authentication
+
+<CardGroup cols={2}>
+  <Card title="AuthGuard" icon="shield">
+    All payment endpoints are protected with `@UseGuards(AuthGuard)`
+  </Card>
+  <Card title="Token Authentication" icon="key">
+    Bearer token is automatically added to all API requests
+  </Card>
+  <Card title="Webhook Validation" icon="webhook">
+    Payment webhooks validate the payment ID before processing
+  </Card>
+  <Card title="Metadata Security" icon="database">
+    Reservation data is securely stored in Mercado Pago metadata
+  </Card>
+</CardGroup>
+
+## Professional Settings
+
+Payment requirements are configured per professional:
+
+| Setting | Description |
+|---------|-------------|
+| `requires_deposit` | Whether payment is required before confirmation |
+| `deposit_amount` | The deposit amount in cents (e.g., 10000 = $100.00) |
+
+## Best Practices
+
+<Warning>
+  Always validate that the payment status is "approved" before creating the reservation record.
+</Warning>
+
+<Info>
+  Store the Mercado Pago payment ID (`external_payment_id`) to enable refunds and payment tracking.
+</Info>
+
+<CardGroup cols={2}>
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Handle webhook failures gracefully and log errors for debugging
+  </Card>
+  <Card title="Idempotency" icon="rotate">
+    Check if reservation already exists before creating to prevent duplicates
+  </Card>
+  <Card title="Notification URL" icon="bell">
+    Use absolute URLs for webhooks, not relative paths
+  </Card>
+  <Card title="Metadata" icon="tags">
+    Include all necessary reservation data in payment metadata
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Book Appointment" icon="calendar-plus" href="/patients/booking-appointments">
+    Learn the complete booking process
+  </Card>
+  <Card title="Manage Reservations" icon="calendar-check" href="/patients/managing-reservations">
+    View and manage your confirmed appointments
+  </Card>
+</CardGroup>

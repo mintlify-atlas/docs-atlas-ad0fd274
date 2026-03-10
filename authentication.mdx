@@ -1,0 +1,309 @@
+---
+title: "Authentication"
+description: "Understanding authentication and authorization in Zenda"
+---
+
+## Overview
+
+Zenda uses **Supabase Auth** for secure authentication and role-based access control. Both mental health professionals and patients authenticate through the same system, with access permissions determined by user roles.
+
+<Note>
+All API requests require authentication via Bearer token in the Authorization header.
+</Note>
+
+## Authentication Flow
+
+Zenda implements a token-based authentication system:
+
+<Steps>
+  <Step title="User Sign-In">
+    Users (professionals or patients) sign in through the Supabase authentication UI with their email and password.
+  </Step>
+  <Step title="Token Generation">
+    Upon successful authentication, Supabase generates a JWT (JSON Web Token) that contains:
+    - User ID
+    - Email
+    - Token expiration time
+    - User metadata (role, profile info)
+  </Step>
+  <Step title="Token Storage">
+    The frontend stores the authentication token securely and includes it in all API requests.
+  </Step>
+  <Step title="Token Validation">
+    The backend validates the token on each request using the `AuthGuard` to ensure the user is authenticated.
+  </Step>
+</Steps>
+
+## Supabase Client Setup
+
+### Frontend Client
+
+The frontend uses the Supabase JavaScript client for authentication:
+
+```typescript lib/supabaseClient.ts
+import { createClient } from '@supabase/supabase-js';
+
+export const supabaseClient = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.NEXT_PUBLIC_SUPABASE_API_KEY || ""
+)
+```
+
+### Required Environment Variables
+
+```bash .env.local
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_API_KEY=your-anon-public-key
+```
+
+## Authentication Guard
+
+The backend uses NestJS guards to protect API endpoints. All routes require authentication unless explicitly marked as public.
+
+### AuthGuard Implementation
+
+```typescript server/src/common/guards/auth.guard.ts
+import { 
+  CanActivate, 
+  ExecutionContext, 
+  Injectable, 
+  UnauthorizedException 
+} from '@nestjs/common';
+import { SupabaseService } from 'src/modules/supabase/supabase.service';
+
+@Injectable()
+export class AuthGuard implements CanActivate {
+  constructor(private readonly supabaseService: SupabaseService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+
+    // Extract Bearer token from Authorization header
+    const authHeader = request.headers['authorization'];
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new UnauthorizedException('Token no proporcionado');
+    }
+
+    const token = authHeader.split(' ')[1];
+
+    // Validate token with Supabase
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .auth
+      .getUser(token);
+    
+    if (error || !data.user) {
+      throw new UnauthorizedException('Token inválido o expirado');
+    }
+
+    // Attach user to request object
+    request.user = data.user;
+    return true;
+  }
+}
+```
+
+### Usage in Controllers
+
+```typescript
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { AuthGuard } from 'src/common/guards/auth.guard';
+
+@Controller('reservations')
+@UseGuards(AuthGuard)  // Require authentication for all routes
+export class ReservationsController {
+  @Get()
+  async findAll() {
+    // Only authenticated users can access this
+    return await this.reservationsService.findAll();
+  }
+}
+```
+
+## Role-Based Access Control
+
+Zenda implements role-based access with two primary user types:
+
+### Professional Role
+
+Mental health professionals have access to:
+- Professional dashboard
+- Schedule configuration
+- Patient management
+- Reservation management (view all, create manual blocks, cancel)
+- Payment settings
+- Full appointment history
+
+### Patient Role
+
+Patients have access to:
+- Booking interface
+- Their own reservations only
+- Payment processing
+- Personal appointment history
+
+### RolesGuard Implementation
+
+For routes that require specific roles (e.g., only professionals can update settings):
+
+```typescript server/src/common/guards/roles.guard.ts
+@Injectable()
+export class RolesGuard implements CanActivate {
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest();
+    const user = request.user;
+
+    // Check if user has professional role
+    const isProfessional = await this.checkProfessionalRole(user.id);
+    
+    if (!isProfessional) {
+      throw new ForbiddenException('Acceso denegado');
+    }
+
+    return true;
+  }
+}
+```
+
+### Protected Routes Example
+
+```typescript
+@Controller('professional-settings')
+@UseGuards(AuthGuard)
+export class ProfessionalSettingsController {
+  @Get()
+  async get() {
+    // Any authenticated user can view settings
+    return await this.professionalSettingsService.get();
+  }
+
+  @Patch(':id')
+  @UseGuards(RolesGuard)  // Only professionals can update
+  async update(@Param('id') id: string, @Body() dto: UpdateDto) {
+    return await this.professionalSettingsService.update(id, dto);
+  }
+}
+```
+
+## Making Authenticated API Requests
+
+### From the Frontend
+
+```typescript lib/axiosClient.ts
+import axios from 'axios';
+import { supabaseClient } from './supabaseClient';
+
+const axiosClient = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
+});
+
+// Add authentication token to all requests
+axiosClient.interceptors.request.use(async (config) => {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  
+  if (session?.access_token) {
+    config.headers.Authorization = `Bearer ${session.access_token}`;
+  }
+  
+  return config;
+});
+
+export default axiosClient;
+```
+
+### Example API Call
+
+```typescript
+import axiosClient from '@/lib/axiosClient';
+
+// Token is automatically included
+const response = await axiosClient.get('/api/reservations');
+const reservations = response.data;
+```
+
+## Token Expiration
+
+Supabase tokens expire after a configurable period (default: 1 hour). The client library automatically:
+- Refreshes tokens before expiration
+- Handles token refresh failures
+- Prompts re-authentication when needed
+
+## Error Handling
+
+Common authentication errors:
+
+### 401 Unauthorized
+
+```json
+{
+  "statusCode": 401,
+  "message": "Token no proporcionado",
+  "error": "Unauthorized"
+}
+```
+
+**Cause**: Missing or invalid Authorization header
+
+**Solution**: Ensure the Bearer token is included in the request
+
+### 401 Invalid Token
+
+```json
+{
+  "statusCode": 401,
+  "message": "Token inválido o expirado",
+  "error": "Unauthorized"
+}
+```
+
+**Cause**: Token has expired or is malformed
+
+**Solution**: Refresh the token or prompt the user to sign in again
+
+### 403 Forbidden
+
+```json
+{
+  "statusCode": 403,
+  "message": "Acceso denegado",
+  "error": "Forbidden"
+}
+```
+
+**Cause**: User lacks required role/permissions
+
+**Solution**: Ensure the user has the appropriate role for the requested operation
+
+## Security Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Store Tokens Securely" icon="lock">
+    Never store tokens in localStorage if possible. Use secure, HTTP-only cookies or session storage.
+  </Card>
+  <Card title="Use HTTPS" icon="shield-check">
+    Always use HTTPS in production to prevent token interception.
+  </Card>
+  <Card title="Validate on Every Request" icon="check-circle">
+    Never trust client-side authentication state. Always validate tokens server-side.
+  </Card>
+  <Card title="Implement Token Refresh" icon="rotate">
+    Handle token expiration gracefully with automatic refresh logic.
+  </Card>
+</CardGroup>
+
+## Related Resources
+
+<CardGroup cols={2}>
+  <Card title="Supabase Integration" icon="database" href="/integrations/supabase">
+    Complete Supabase setup guide
+  </Card>
+  <Card title="API Introduction" icon="code" href="/api/introduction">
+    Learn about the REST API structure
+  </Card>
+  <Card title="API Authentication" icon="key" href="/api/authentication">
+    API-specific authentication details
+  </Card>
+  <Card title="Professional Dashboard" icon="user-shield" href="/professionals/dashboard">
+    Access control in the professional dashboard
+  </Card>
+</CardGroup>

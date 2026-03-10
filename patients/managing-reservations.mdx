@@ -1,0 +1,349 @@
+---
+title: Managing Reservations
+description: View, track, and manage your appointment reservations in Zenda
+---
+
+## Overview
+
+Patients can view all their reservations, check upcoming appointments, review past sessions, and cancel bookings when needed. The reservation management system provides a complete history and status tracking.
+
+## Viewing Your Reservations
+
+### Dashboard Overview
+
+The main dashboard (`/dashboard`) displays:
+- **Current/Next Appointment**: The upcoming reservation
+- **Reservation History**: Past and all scheduled appointments
+
+```typescript
+// From: app/core/dashboard/components/home/DashboardUser.tsx
+export const DashboardUser = () => {
+  const currentSession = useAuthStore(state => state.session);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [currentReservation, setCurrentReservation] = useState<Reservation>();
+  const currentGetReservations = useReservationsStore(
+    state => state.getReservations
+  );
+
+  useEffect(() => {
+    if (!currentSession) return;
+
+    const fetchReservations = async () => {
+      const client_id = currentSession.user.id;
+      const localReservations = await currentGetReservations({ client_id });
+      setReservations(localReservations);
+
+      if (!localReservations.length) return;
+
+      const nextReservation: Reservation = getCurrentReservation(
+        localReservations
+      );
+      setCurrentReservation(nextReservation);
+    };
+
+    fetchReservations();
+  }, [currentSession]);
+
+  return (
+    <LayoutDashboardUser
+      titleSection={`Hola, bienvenido ${firstName}`}
+      subtitleSection="Gestioná tus turnos y revisá tu historial de sesiones"
+    >
+      {!currentReservation ? (
+        <EmptyTurn />
+      ) : (
+        <CurrentTurn reservation={currentReservation} />
+      )}
+      <HistoryTurns reservations={reservations} />
+    </LayoutDashboardUser>
+  );
+};
+```
+
+## Fetching Reservations
+
+### API Endpoint
+
+Reservations are fetched using the user-specific endpoint:
+
+```http
+GET /reservations/user/:client_id
+```
+
+**Response:**
+```json
+{
+  "status": 200,
+  "data": [
+    {
+      "id": "res789",
+      "client_id": "abc123",
+      "professional_id": "prof456",
+      "start_time": "2026-03-15T14:00:00",
+      "end_time": "2026-03-15T14:45:00",
+      "status": "CONFIRMED",
+      "session_modality": "Virtual",
+      "created_at": "2026-03-10T10:30:00"
+    }
+  ],
+  "message": "SOLICITASTE TODAS LAS RESERVAS DEL USUARIO CON EL ID: abc123 EXITOSAMENTE"
+}
+```
+
+### Backend Implementation
+
+```typescript
+// From: server/src/modules/reservations/reservations.controller.ts
+@Get('/user/:client_id')
+@ApiOperation({
+  summary: 'Obtener reservas por usuario',
+  description: 'Retorna todas las reservas asociadas a un usuario específico según su ID de cliente.',
+})
+async findAllByUser(@Param('client_id') client_id: string) {
+  try {
+    return {
+      status: 200,
+      data: await this.reservationsService.findAllByUser({ client_id }),
+      message: `SOLICITASTE TODAS LAS RESERVAS DEL USUARIO CON EL ID: ${client_id} EXITOSAMENTE`
+    }
+  } catch (error) {
+    throw new HttpException(error, HttpStatus.BAD_REQUEST);
+  }
+}
+```
+
+```typescript
+// From: server/src/modules/reservations/reservations.service.ts
+async findAllByUser({ client_id }: { client_id: string }) {
+  const { data, error } = await this.supabaseService
+    .getClient()
+    .from('reservations')
+    .select('*')
+    .eq('client_id', client_id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return data;
+}
+```
+
+## Reservation Store
+
+The client uses Zustand for state management with persistence:
+
+```typescript
+// From: store/ReservationsStore.ts
+interface ReservationsStore {
+  reservations: Reservation[];
+  currentReservation: Reservation | null;
+  allReservations: Reservation[];
+  getReservations: (params: { client_id: string }) => Promise<Reservation[]>;
+  setCurrentReservation: (reservation: Reservation) => setCurrentReservationResponse;
+  deleteReservation: (params: { reservationId: string }) => void;
+}
+
+export const useReservationsStore = create<ReservationsStore>()(persist(
+  (set) => ({
+    reservations: [],
+    currentReservation: null,
+    allReservations: [],
+
+    getReservations: async ({ client_id }) => {
+      const localUrl = serverConfig.reservations.fetchReservationsByUser({
+        client_id
+      });
+
+      try {
+        const response = await axiosClient(localUrl);
+        const reservations: Reservation[] = response.data.data;
+
+        // Sort by start_time descending (newest first)
+        const sortReservations = [...reservations].sort(
+          (a, b) =>
+            new Date(b.start_time).getTime() -
+            new Date(a.start_time).getTime()
+        );
+
+        set({ reservations: sortReservations });
+        return sortReservations;
+      } catch (error) {
+        set({ reservations: [] });
+        throw error;
+      }
+    },
+  }),
+  {
+    name: "reservations-store",
+    partialize: (state) => ({
+      reservations: state.reservations,
+      currentReservation: state.currentReservation,
+      allReservations: state.allReservations,
+    }),
+  }
+));
+```
+
+<Note>
+  Reservations are automatically sorted by `start_time` in descending order, showing the most recent first.
+</Note>
+
+## Reservation Statuses
+
+Each reservation has one of three possible statuses:
+
+```typescript
+export type ReservationStatus = "PENDING" | "CONFIRMED" | "CANCELLED";
+```
+
+<CardGroup cols={3}>
+  <Card title="PENDING" icon="clock">
+    Awaiting payment confirmation or professional approval
+  </Card>
+  <Card title="CONFIRMED" icon="check">
+    Reservation is confirmed and scheduled
+  </Card>
+  <Card title="CANCELLED" icon="x">
+    Reservation has been cancelled
+  </Card>
+</CardGroup>
+
+## Canceling Reservations
+
+### Delete Endpoint
+
+Patients can cancel reservations using the delete endpoint:
+
+```http
+DELETE /reservations/:id
+```
+
+### Client Implementation
+
+```typescript
+// From: store/ReservationsStore.ts
+deleteReservation: async ({ reservationId }) => {
+  const localUrl = `${serverConfig.reservations.common}/${reservationId}`;
+
+  try {
+    await axiosClient.delete(localUrl);
+  } catch (error) {
+    return error;
+  }
+}
+```
+
+### Backend Implementation
+
+```typescript
+// From: server/src/modules/reservations/reservations.controller.ts
+@Delete(':id')
+@ApiOperation({
+  summary: 'Eliminar una reserva',
+  description: 'Elimina permanentemente una reserva del sistema según su ID.',
+})
+async remove(@Param('id') id: string) {
+  const data = await this.reservationsService.remove(id);
+  return { data, status: 200 }
+}
+```
+
+```typescript
+// From: server/src/modules/reservations/reservations.service.ts
+async remove(id: string) {
+  const { data, error } = await this.supabaseService
+    .getClient()
+    .from("reservations")
+    .delete()
+    .eq("id", id)
+    .select();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+```
+
+<Warning>
+  Cancellation requests should be made at least 48 hours in advance according to the platform's policy. Check with your professional for their specific cancellation policy.
+</Warning>
+
+## Reservation Details
+
+Each reservation includes comprehensive information:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique reservation identifier |
+| `client_id` | string | Patient's user ID |
+| `professional_id` | string | Professional's user ID |
+| `start_time` | string | Appointment start time (ISO format) |
+| `end_time` | string | Appointment end time (ISO format) |
+| `status` | ReservationStatus | Current status of the reservation |
+| `session_modality` | SessionModalityToUser | "Virtual" or "Presencial" |
+| `created_at` | string | When the reservation was created |
+
+## Retrieving a Single Reservation
+
+To get details of a specific reservation:
+
+```http
+GET /reservations/:id
+```
+
+```typescript
+// Client configuration
+findOne: ({ reservationId }: { reservationId: string }) => {
+  return `${serverUrl}/reservations/${reservationId}`
+}
+```
+
+## Authentication
+
+<Info>
+  All reservation endpoints require authentication using the `AuthGuard`. The access token is automatically added to requests via the axios interceptor.
+</Info>
+
+```typescript
+// From: lib/axiosClient.ts
+export const axiosClient = axios.create();
+
+axiosClient.interceptors.request.use((config) => {
+  const session = useAuthStore.getState().session;
+  if (session?.access_token) {
+    config.headers.Authorization = `Bearer ${session.access_token}`;
+  }
+  return config;
+});
+```
+
+## Best Practices
+
+<CardGroup cols={2}>
+  <Card title="Automatic Refresh" icon="rotate">
+    Reservations are fetched on component mount and stored in persistent state
+  </Card>
+  <Card title="Error Handling" icon="triangle-exclamation">
+    Always handle errors when fetching or deleting reservations
+  </Card>
+  <Card title="Sorted Display" icon="sort">
+    Reservations are sorted by date to show upcoming appointments first
+  </Card>
+  <Card title="Empty State" icon="inbox">
+    Provide a clear UI when patients have no reservations
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Book Appointment" icon="calendar-plus" href="/patients/booking-appointments">
+    Learn how to book a new appointment
+  </Card>
+  <Card title="Payment Process" icon="credit-card" href="/patients/payments">
+    Understand how payments work for reservations
+  </Card>
+</CardGroup>

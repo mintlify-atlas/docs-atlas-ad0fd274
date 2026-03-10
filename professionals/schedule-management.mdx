@@ -1,0 +1,347 @@
+---
+title: Schedule Management
+description: Configure your working hours, session duration, and availability settings
+---
+
+As a mental health professional on Zenda, you have full control over your schedule configuration. This includes setting working hours, session duration, modalities, and availability windows.
+
+## Accessing Schedule Settings
+
+Navigate to your professional settings by going to `/admin/dashboard/professional-settings`. The settings interface is divided into multiple configuration sections.
+
+## Professional Settings Data Structure
+
+Your schedule configuration is stored in the `ProfessionalSettings` interface:
+
+```typescript
+interface ProfessionalSettings {
+  id: UUID;
+  user_id: UUID;
+  
+  // Schedule configuration
+  session_duration_minutes: number;
+  work_days: string;              // e.g. "MON-FRI"
+  work_start_time: TimeString;    // e.g. "09:00"
+  work_end_time: TimeString;      // e.g. "18:00"
+  
+  // Booking window
+  reservation_window_days: number;
+  
+  // Payment configuration
+  requires_deposit: boolean;
+  deposit_amount?: number | null;
+  
+  // Session modalities
+  session_modalities: SessionModality; // "Virtual" | "Presencial" | "BOTH"
+  office_address?: string | null;
+  
+  created_at: Timestamp;
+}
+```
+
+Reference: `/workspace/source/schemas/professional_settings.ts:5-23`
+
+## Configuring Session Duration
+
+### Session Duration Settings
+
+Set how long each therapy session lasts:
+
+- **Minimum:** 15 minutes
+- **Maximum:** 180 minutes
+- **Common values:** 45, 50, or 60 minutes
+
+The session duration is validated with these constraints:
+
+```typescript
+@IsInt()
+@Min(15)
+@Max(180)
+session_duration_minutes: number;
+```
+
+Reference: `/workspace/source/server/src/modules/professional-settings/dto/update-professional-setting.dto.ts:22-25`
+
+<Note>
+The session duration affects your calendar's time slot intervals and determines how many appointments can be scheduled in a day.
+</Note>
+
+## Setting Working Days
+
+### Configuring Work Days
+
+Specify which days of the week you're available to see patients. The `work_days` field stores this information in an encoded format.
+
+<Steps>
+  <Step title="Select Days">
+    Choose which days you work from the days selector interface in the settings panel
+  </Step>
+  <Step title="Format Conversion">
+    The UI converts your selection using `getUIToCoded()` utility before saving
+  </Step>
+  <Step title="Save Configuration">
+    Your work days are stored and used to generate available time slots
+  </Step>
+</Steps>
+
+The implementation handles day selection in the `DaysSection` component:
+
+```typescript
+const handleWorkDays = (workDays: string[]) => {
+  setIsSaved(false);
+  setLocalSettings({ 
+    ...localSettings, 
+    work_days: getUIToCoded(workDays) 
+  });
+};
+```
+
+Reference: `/workspace/source/app/core/admin/components/professional-settings/ProfessionalSettings.tsx:56-59`
+
+## Configuring Working Hours
+
+### Start and End Times
+
+Define your daily working hours:
+
+- **Start Time** (`work_start_time`) - When you begin seeing patients
+- **End Time** (`work_end_time`) - When you stop accepting appointments
+
+Both times are stored as `TimeString` format (e.g., "09:00", "18:00").
+
+```typescript
+@IsString()
+work_start_time: string;
+
+@IsString()
+work_end_time: string;
+```
+
+Reference: `/workspace/source/server/src/modules/professional-settings/dto/update-professional-setting.dto.ts:30-34`
+
+### Attention Hours Section
+
+The settings interface provides time pickers to configure these values:
+
+```typescript
+const handleStartTime = (time: string) => {
+  setIsSaved(false);
+  setLocalSettings({ ...localSettings, work_start_time: time });
+};
+
+const handleEndTime = (time: string) => {
+  setIsSaved(false);
+  setLocalSettings({ ...localSettings, work_end_time: time });
+};
+```
+
+Reference: `/workspace/source/app/core/admin/components/professional-settings/ProfessionalSettings.tsx:76-83`
+
+<Info>
+Your working hours directly affect the calendar's available time slots. The calendar will only show appointment slots within your configured work hours.
+</Info>
+
+## Reservation Window
+
+### Booking Window Days
+
+Control how far in advance patients can book appointments:
+
+- **Minimum:** 1 day
+- **Maximum:** 365 days
+- **Recommended:** 30-90 days for optimal scheduling
+
+```typescript
+@IsInt()
+@Min(1)
+@Max(365)
+reservation_window_days: number;
+```
+
+Reference: `/workspace/source/server/src/modules/professional-settings/dto/update-professional-setting.dto.ts:36-39`
+
+This setting prevents patients from booking too far in advance, helping you maintain schedule flexibility.
+
+## Session Modalities
+
+### Choosing Session Types
+
+Select which types of sessions you offer:
+
+<Tabs>
+  <Tab title="Virtual">
+    Online sessions only via video conferencing
+  </Tab>
+  <Tab title="Presencial (In-Person)">
+    Face-to-face sessions at your office location
+  </Tab>
+  <Tab title="BOTH">
+    Both virtual and in-person options available
+  </Tab>
+</Tabs>
+
+The modality is defined as an enum:
+
+```typescript
+export enum SessionModality {
+  Virtual = 'Virtual',
+  Presencial = 'Presencial',
+  BOTH = 'BOTH',
+}
+
+@IsEnum(SessionModality)
+session_modalities: SessionModality;
+```
+
+Reference: `/workspace/source/server/src/modules/professional-settings/dto/update-professional-setting.dto.ts:12-50`
+
+### Office Address Configuration
+
+If you offer in-person sessions (`Presencial` or `BOTH`), you must provide an office address:
+
+```typescript
+@IsOptional()
+@IsString()
+office_address?: string | null;
+```
+
+The settings form validates this:
+
+```typescript
+const requiresAddress = session_modalities === "Presencial" || session_modalities === "BOTH";
+const isAddressEmpty = requiresAddress && !office_address?.trim();
+```
+
+Reference: `/workspace/source/app/core/admin/components/professional-settings/ProfessionalSettings.tsx:99-100`
+
+<Warning>
+You cannot save your settings if you've selected in-person sessions without providing an office address. The confirm button will be disabled until an address is entered.
+</Warning>
+
+## Saving Settings
+
+### Update Process
+
+When you modify any settings, the changes are tracked and saved via the `updateProfessionalSettings()` method:
+
+<Steps>
+  <Step title="Modify Settings">
+    Change any configuration value in the UI. The save button becomes enabled.
+  </Step>
+  <Step title="Validation">
+    Client-side validation ensures all required fields are properly filled and constraints are met.
+  </Step>
+  <Step title="Submit Changes">
+    Click the confirm button to save your changes.
+  </Step>
+  <Step title="API Update">
+    Settings are sent to the server via PATCH request to update your configuration.
+  </Step>
+</Steps>
+
+The save handler:
+
+```typescript
+const handleConfirm = async () => {
+  setIsLoading(true);
+  try {
+    const updatedSettings = await updateProfessionalSettings(localSettings);
+    if (updatedSettings) setLocalSettings(updatedSettings);
+    setIsSaved(true);
+    toast.success("Configuraciones guardadas correctamente");
+  } catch (error) {
+    toast.error("Error al guardar las configuraciones, intentá de nuevo");
+  } finally {
+    setIsLoading(false);
+  }
+};
+```
+
+Reference: `/workspace/source/app/core/admin/components/professional-settings/ProfessionalSettings.tsx:85-97`
+
+### State Management
+
+Your settings are managed through the `ProfessionalSettingsStore`:
+
+```typescript
+interface ProfessionalSettingsStore {
+  professional_settings: ProfessionalSettings | null;
+  getProfessionalSettings: () => Promise<ProfessionalSettings>;
+  updateProfessionalSettings: (newSettings: ProfessionalSettings) => Promise<ProfessionalSettings>;
+}
+```
+
+The store persists settings to localStorage and syncs with the server:
+
+```typescript
+updateProfessionalSettings: async (newSettings: ProfessionalSettings) => {
+  const localUrl = serverConfig.professionalSettings.patch({ id: newSettings.user_id });
+  try {
+    const { data } = await axiosClient.patch(localUrl, newSettings);
+    set({ professional_settings: data.data });
+    return data.data;
+  } catch (error) {
+    throw error;
+  }
+}
+```
+
+Reference: `/workspace/source/store/ProfessionalSettingsStore.ts:31-40`
+
+## Validation Rules
+
+The confirm button is disabled if:
+
+1. **Invalid deposit settings** - Deposit is required but amount is not set or less than 1
+2. **Missing office address** - In-person sessions selected but no address provided
+3. **No changes made** - Settings haven't been modified since last save
+4. **Settings unchanged** - Current settings match the saved settings
+
+```typescript
+const isDepositInvalid = requires_deposit && (!deposit_amount || deposit_amount < 1);
+const isConfirmDisabled = isDepositInvalid || isAddressEmpty || isSaved || disabledConfirmSection({
+  originalSettings: currentProfessionalSettings,
+  newSettings: localSettings
+});
+```
+
+Reference: `/workspace/source/app/core/admin/components/professional-settings/ProfessionalSettings.tsx:101-106`
+
+## Calendar Integration
+
+Your schedule settings directly control the calendar:
+
+- **Time slots** are generated based on `session_duration_minutes`
+- **Available days** are filtered by `work_days`
+- **Available hours** are bounded by `work_start_time` and `work_end_time`
+- **Booking window** is limited by `reservation_window_days`
+
+The calendar uses these settings to calculate valid appointment times:
+
+```typescript
+const timeSlots = useMemo(() => {
+  if (!calendarSchedule?.min || !calendarSchedule?.max) return [];
+  const start = dayjs(calendarSchedule.min);
+  const end = dayjs(calendarSchedule.max);
+  const slots: string[] = [];
+  let current = start;
+  while (current.isBefore(end)) {
+    slots.push(current.format("HH:mm"));
+    current = current.add(sessionMinutesDuration + 10, "minute");
+  }
+  return slots;
+}, [calendarSchedule, sessionMinutesDuration]);
+```
+
+Reference: `/workspace/source/app/core/admin/components/calendar/CalendarAdmin.tsx:70-81`
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Payment Settings" icon="credit-card" href="/professionals/payment-settings">
+    Configure deposit requirements and payment integration
+  </Card>
+  <Card title="Calendar Management" icon="calendar" href="/professionals/reservations">
+    Manage your appointments and manual blocks
+  </Card>
+</CardGroup>
